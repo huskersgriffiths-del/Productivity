@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Momentum — Calendar</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand">◆ Momentum</a>
+  <a href="index.html" class="nav-link">Home</a>
+  <a href="habits.html" class="nav-link">Habits</a>
+  <a href="journal.html" class="nav-link">Journal</a>
+  <a href="tasks.html" class="nav-link">Tasks</a>
+  <a href="calendar.html" class="nav-link">Calendar</a>
+  <a href="focus.html" class="nav-link">Focus</a>
+</nav>
+
+<main>
+
+  <h1>Calendar</h1>
+
+  <!-- Month navigation -->
+  <div class="card mt-md">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" id="prev-btn">‹</button>
+      <h2 id="month-label"></h2>
+      <button class="cal-nav-btn" id="next-btn">›</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <!-- Selected day detail -->
+  <div class="card cal-detail mt-lg" id="cal-detail" style="display:none;">
+    <div class="section-header">
+      <h2 id="detail-date-label"></h2>
+    </div>
+    <div id="cal-events-list" class="cal-events-list"></div>
+    <form class="cal-add-form mt-md" id="cal-event-form">
+      <input type="text" id="cal-event-input" placeholder="Add a note or event…" autocomplete="off" />
+      <button type="submit" class="btn btn-primary btn-sm">Add</button>
+    </form>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let viewDate = new Date();
+  let selectedDate = null;
+
+  function getEvents() { return store.get('calendar_events', {}); }
+  function saveEvents(ev) { store.set('calendar_events', ev); }
+
+  function isoKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderCalendar() {
+    const events = getEvents();
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const todayStr = today();
+
+    document.getElementById('month-label').textContent = `${MONTHS[month]} ${year}`;
+
+    const grid = document.getElementById('cal-grid');
+
+    // Weekday headers
+    let html = WEEKDAYS.map(d => `<div class="cal-weekday">${d}</div>`).join('');
+
+    // First day of month, pad empties
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevDays = new Date(year, month, 0).getDate();
+
+    // Previous month filler
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const d = prevDays - i;
+      html += `<div class="cal-day other-month"><div class="cal-day-num">${d}</div></div>`;
+    }
+
+    // Current month days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateObj = new Date(year, month, d);
+      const key = isoKey(dateObj);
+      const isToday = key === todayStr;
+      const isSelected = key === selectedDate;
+      const dayEvents = events[key] || [];
+
+      const classes = ['cal-day', isToday ? 'today' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
+
+      const eventDots = dayEvents.slice(0, 3).map(ev =>
+        `<div class="cal-event-dot">${escapeHtml(ev.text)}</div>`
+      ).join('');
+
+      const moreLabel = dayEvents.length > 3 ? `<div class="cal-event-dot">+${dayEvents.length - 3} more</div>` : '';
+
+      html += `<div class="${classes}" data-key="${key}" data-day="${d}">
+        <div class="cal-day-num">${d}</div>
+        ${eventDots}${moreLabel}
+      </div>`;
+    }
+
+    // Next month filler
+    const totalCells = firstDay + daysInMonth;
+    const remainder = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let d = 1; d <= remainder; d++) {
+      html += `<div class="cal-day other-month"><div class="cal-day-num">${d}</div></div>`;
+    }
+
+    grid.innerHTML = html;
+
+    // Day click
+    grid.querySelectorAll('.cal-day:not(.other-month)').forEach(el => {
+      el.addEventListener('click', () => {
+        selectedDate = el.dataset.key;
+        renderCalendar();
+        renderDetail();
+      });
+    });
+  }
+
+  function renderDetail() {
+    const detail = document.getElementById('cal-detail');
+    if (!selectedDate) { detail.style.display = 'none'; return; }
+
+    detail.style.display = 'block';
+
+    const [y, m, d] = selectedDate.split('-');
+    const dateLabel = new Date(+y, +m - 1, +d).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    });
+    document.getElementById('detail-date-label').textContent = dateLabel;
+
+    const events = getEvents();
+    const dayEvents = events[selectedDate] || [];
+    const listEl = document.getElementById('cal-events-list');
+
+    if (!dayEvents.length) {
+      listEl.innerHTML = '<p class="text-sm text-muted" style="padding:8px 0;">No events yet for this day.</p>';
+    } else {
+      listEl.innerHTML = dayEvents.map(ev => `
+        <div class="cal-event-item">
+          <span>${escapeHtml(ev.text)}</span>
+          <button class="cal-event-del" data-id="${ev.id}" title="Remove">×</button>
+        </div>
+      `).join('');
+    }
+
+    // Set input focus
+    document.getElementById('cal-event-input').focus();
+  }
+
+  // Add event
+  document.getElementById('cal-event-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const input = document.getElementById('cal-event-input');
+    const text = input.value.trim();
+    if (!text || !selectedDate) return;
+
+    const events = getEvents();
+    if (!events[selectedDate]) events[selectedDate] = [];
+    events[selectedDate].push({ id: generateId(), text });
+    saveEvents(events);
+    input.value = '';
+    renderCalendar();
+    renderDetail();
+  });
+
+  // Delete event
+  document.getElementById('cal-events-list').addEventListener('click', e => {
+    const btn = e.target.closest('.cal-event-del');
+    if (!btn || !selectedDate) return;
+    const events = getEvents();
+    events[selectedDate] = (events[selectedDate] || []).filter(ev => ev.id !== btn.dataset.id);
+    if (!events[selectedDate].length) delete events[selectedDate];
+    saveEvents(events);
+    renderCalendar();
+    renderDetail();
+  });
+
+  // Month navigation
+  document.getElementById('prev-btn').addEventListener('click', () => {
+    viewDate.setMonth(viewDate.getMonth() - 1);
+    renderCalendar();
+  });
+
+  document.getElementById('next-btn').addEventListener('click', () => {
+    viewDate.setMonth(viewDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  // Auto-select today
+  selectedDate = today();
+  renderCalendar();
+  renderDetail();
+</script>
+
+</body>
+</html>

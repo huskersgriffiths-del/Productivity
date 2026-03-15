@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Momentum — Journal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand">◆ Momentum</a>
+  <a href="index.html" class="nav-link">Home</a>
+  <a href="habits.html" class="nav-link">Habits</a>
+  <a href="journal.html" class="nav-link">Journal</a>
+  <a href="tasks.html" class="nav-link">Tasks</a>
+  <a href="calendar.html" class="nav-link">Calendar</a>
+  <a href="focus.html" class="nav-link">Focus</a>
+</nav>
+
+<main>
+
+  <h1>Journal</h1>
+
+  <!-- Compose -->
+  <div class="card mt-md">
+    <h2 style="margin-bottom:14px;">New entry</h2>
+    <form class="journal-compose" id="journal-form">
+      <input type="date" id="entry-date" />
+      <textarea id="entry-text" placeholder="What's on your mind? Reflect on your day, capture ideas, or write anything you'd like to remember…" rows="5"></textarea>
+      <div style="display:flex; justify-content:flex-end;">
+        <button type="submit" class="btn btn-primary">Save entry</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Past entries -->
+  <div class="mt-xl">
+    <div class="section-header">
+      <h2>Past entries</h2>
+      <span class="text-sm text-muted" id="entry-count"></span>
+    </div>
+    <div class="card" id="entries-card">
+      <div id="entries-list"></div>
+    </div>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  // Set default date to today
+  document.getElementById('entry-date').value = today();
+
+  function getEntries() {
+    return store.get('journal', []);
+  }
+
+  function saveEntries(entries) {
+    store.set('journal', entries);
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function formatEntryDate(iso) {
+    const [y, m, d] = iso.split('-');
+    return new Date(+y, +m - 1, +d).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    });
+  }
+
+  function render() {
+    const entries = getEntries().slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const list = document.getElementById('entries-list');
+    const count = document.getElementById('entry-count');
+
+    count.textContent = entries.length ? `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}` : '';
+
+    if (!entries.length) {
+      list.innerHTML = `<div class="empty"><div class="empty-icon">📓</div><p>No entries yet. Write your first one above.</p></div>`;
+      return;
+    }
+
+    list.innerHTML = entries.map(entry => `
+      <div class="journal-entry" data-id="${entry.id}">
+        <div class="journal-entry-date">${formatEntryDate(entry.date)}</div>
+        <div class="journal-entry-preview">${escapeHtml(entry.text)}</div>
+        <div class="journal-entry-actions">
+          <button class="btn btn-ghost btn-sm" data-action="delete" data-id="${entry.id}">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Toggle expand
+  document.getElementById('entries-list').addEventListener('click', e => {
+    const delBtn = e.target.closest('[data-action="delete"]');
+    if (delBtn) {
+      e.stopPropagation();
+      if (!confirm('Delete this journal entry?')) return;
+      const entries = getEntries().filter(en => en.id !== delBtn.dataset.id);
+      saveEntries(entries);
+      render();
+      return;
+    }
+
+    const entry = e.target.closest('.journal-entry');
+    if (entry) {
+      entry.classList.toggle('open');
+    }
+  });
+
+  // Save entry
+  document.getElementById('journal-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const text = document.getElementById('entry-text').value.trim();
+    const date = document.getElementById('entry-date').value || today();
+    if (!text) return;
+
+    const entries = getEntries();
+    entries.push({
+      id: generateId(),
+      date,
+      text,
+      createdAt: new Date().toISOString(),
+    });
+    saveEntries(entries);
+
+    document.getElementById('entry-text').value = '';
+    document.getElementById('entry-date').value = today();
+    render();
+
+    // Scroll to entries
+    document.getElementById('entries-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  render();
+</script>
+
+</body>
+</html>

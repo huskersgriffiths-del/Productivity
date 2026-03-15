@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Momentum — Focus</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand">◆ Momentum</a>
+  <a href="index.html" class="nav-link">Home</a>
+  <a href="habits.html" class="nav-link">Habits</a>
+  <a href="journal.html" class="nav-link">Journal</a>
+  <a href="tasks.html" class="nav-link">Tasks</a>
+  <a href="calendar.html" class="nav-link">Calendar</a>
+  <a href="focus.html" class="nav-link">Focus</a>
+</nav>
+
+<main>
+
+  <div class="section-header">
+    <h1>Focus</h1>
+    <span class="text-sm text-muted" id="today-focus-label"></span>
+  </div>
+
+  <!-- Timer card -->
+  <div class="card mt-md">
+    <div class="focus-wrap">
+
+      <!-- SVG ring + digits -->
+      <div class="timer-ring-wrap">
+        <svg class="timer-ring-svg" viewBox="0 0 240 240" aria-hidden="true">
+          <circle class="ring-bg" cx="120" cy="120" r="108" />
+          <circle class="ring-fill" cx="120" cy="120" r="108"
+            id="ring-circle"
+            stroke-dasharray="678.58"
+            stroke-dashoffset="0" />
+        </svg>
+        <div class="timer-center">
+          <div class="timer-digits" id="timer-digits">25:00</div>
+          <div class="timer-mode-label" id="timer-mode-label">Focus</div>
+        </div>
+      </div>
+
+      <!-- Pomodoro session dots (4 per cycle) -->
+      <div class="pomodoro-dots" id="pom-dots">
+        <div class="pom-dot" id="dot-0"></div>
+        <div class="pom-dot" id="dot-1"></div>
+        <div class="pom-dot" id="dot-2"></div>
+        <div class="pom-dot" id="dot-3"></div>
+      </div>
+
+      <!-- Controls -->
+      <div class="focus-controls">
+        <button class="btn btn-primary" id="start-btn">Start</button>
+        <button class="btn btn-ghost" id="reset-btn">Reset</button>
+      </div>
+
+      <!-- Mode selector -->
+      <div class="filter-tabs" style="max-width:320px; width:100%;">
+        <button class="filter-tab active" data-mode="focus" id="tab-focus">Focus 25m</button>
+        <button class="filter-tab" data-mode="short" id="tab-short">Break 5m</button>
+        <button class="filter-tab" data-mode="long" id="tab-long">Long 15m</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Today's sessions -->
+  <div class="mt-xl">
+    <div class="section-header">
+      <h2>Today's sessions</h2>
+      <button class="btn btn-ghost btn-sm" id="clear-sessions-btn" style="display:none;">Clear</button>
+    </div>
+    <div class="card focus-sessions" id="sessions-card">
+      <div id="sessions-list"></div>
+    </div>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  // ── Config ───────────────────────────────────────────────────────
+  const MODES = {
+    focus: { label: 'Focus',       minutes: 25 },
+    short: { label: 'Short Break', minutes: 5  },
+    long:  { label: 'Long Break',  minutes: 15 },
+  };
+
+  const CIRCUMFERENCE = 2 * Math.PI * 108; // ≈ 678.58
+
+  // ── State ────────────────────────────────────────────────────────
+  let mode = 'focus';
+  let totalSeconds = MODES.focus.minutes * 60;
+  let secondsLeft = totalSeconds;
+  let running = false;
+  let intervalId = null;
+  let pomSession = 0; // 0–3, resets after long break
+
+  // ── Elements ─────────────────────────────────────────────────────
+  const digitsEl    = document.getElementById('timer-digits');
+  const modeLabel   = document.getElementById('timer-mode-label');
+  const startBtn    = document.getElementById('start-btn');
+  const resetBtn    = document.getElementById('reset-btn');
+  const ringCircle  = document.getElementById('ring-circle');
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function formatTime(secs) {
+    return `${pad(Math.floor(secs / 60))}:${pad(secs % 60)}`;
+  }
+
+  function setRing(progress) {
+    // progress: 0 (empty) → 1 (full)
+    const offset = CIRCUMFERENCE * (1 - progress);
+    ringCircle.style.strokeDashoffset = offset;
+  }
+
+  function updateDisplay() {
+    digitsEl.textContent = formatTime(secondsLeft);
+    modeLabel.textContent = MODES[mode].label;
+    document.title = `${formatTime(secondsLeft)} — ${MODES[mode].label} | Momentum`;
+    const progress = secondsLeft / totalSeconds;
+    setRing(progress);
+
+    // Ring colour: accent for focus, green for breaks
+    ringCircle.classList.toggle('break', mode !== 'focus');
+  }
+
+  function updateDots() {
+    for (let i = 0; i < 4; i++) {
+      const dot = document.getElementById(`dot-${i}`);
+      dot.classList.remove('done', 'current');
+      if (i < pomSession) dot.classList.add('done');
+      else if (i === pomSession && mode === 'focus') dot.classList.add('current');
+    }
+  }
+
+  // ── Session logging ──────────────────────────────────────────────
+  function getSessions() { return store.get('focus_sessions', []); }
+  function saveSessions(s) { store.set('focus_sessions', s); }
+
+  function logSession(mins) {
+    const sessions = getSessions();
+    sessions.push({
+      id: generateId(),
+      date: today(),
+      minutes: mins,
+      mode,
+      completedAt: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    });
+    saveSessions(sessions);
+    renderSessions();
+    updateTodayLabel();
+  }
+
+  function renderSessions() {
+    const sessions = getSessions().filter(s => s.date === today()).reverse();
+    const list = document.getElementById('sessions-list');
+    const clearBtn = document.getElementById('clear-sessions-btn');
+
+    clearBtn.style.display = sessions.length ? 'inline-flex' : 'none';
+
+    if (!sessions.length) {
+      list.innerHTML = `<div class="empty"><div class="empty-icon">⏱</div><p>No sessions yet today. Start the timer to begin.</p></div>`;
+      return;
+    }
+
+    list.innerHTML = sessions.map(s => `
+      <div class="session-item">
+        <span style="color:var(--text);">${s.mode === 'focus' ? '🎯' : '☕'} ${s.mode === 'focus' ? 'Focus' : 'Break'} — ${s.minutes} min</span>
+        <span>${s.completedAt}</span>
+      </div>
+    `).join('');
+  }
+
+  function updateTodayLabel() {
+    const sessions = getSessions().filter(s => s.date === today() && s.mode === 'focus');
+    const mins = sessions.reduce((a, s) => a + s.minutes, 0);
+    document.getElementById('today-focus-label').textContent =
+      mins ? `${mins} min focused today` : '';
+  }
+
+  // ── Timer logic ──────────────────────────────────────────────────
+  function tick() {
+    secondsLeft--;
+    updateDisplay();
+
+    if (secondsLeft <= 0) {
+      clearInterval(intervalId);
+      running = false;
+      startBtn.textContent = 'Start';
+
+      // Beep
+      playBeep(880, 0.3);
+      setTimeout(() => playBeep(1100, 0.3), 350);
+
+      // Log completed focus session
+      if (mode === 'focus') {
+        logSession(MODES.focus.minutes);
+        pomSession = (pomSession + 1) % 4;
+
+        // After 4 focus sessions, suggest long break
+        if (pomSession === 0) {
+          switchMode('long');
+        } else {
+          switchMode('short');
+        }
+      } else {
+        // After a break, switch back to focus
+        switchMode('focus');
+      }
+      updateDots();
+    }
+  }
+
+  function startTimer() {
+    if (running) {
+      clearInterval(intervalId);
+      running = false;
+      startBtn.textContent = 'Resume';
+    } else {
+      if (secondsLeft <= 0) resetTimer();
+      intervalId = setInterval(tick, 1000);
+      running = true;
+      startBtn.textContent = 'Pause';
+    }
+  }
+
+  function resetTimer() {
+    clearInterval(intervalId);
+    running = false;
+    secondsLeft = totalSeconds;
+    startBtn.textContent = 'Start';
+    updateDisplay();
+  }
+
+  function switchMode(newMode) {
+    clearInterval(intervalId);
+    running = false;
+    mode = newMode;
+    totalSeconds = MODES[mode].minutes * 60;
+    secondsLeft = totalSeconds;
+    startBtn.textContent = 'Start';
+
+    // Update tab highlight
+    document.querySelectorAll('.filter-tab[data-mode]').forEach(t =>
+      t.classList.toggle('active', t.dataset.mode === mode)
+    );
+
+    updateDisplay();
+  }
+
+  // ── Event listeners ──────────────────────────────────────────────
+  startBtn.addEventListener('click', startTimer);
+  resetBtn.addEventListener('click', () => { resetTimer(); updateDots(); });
+
+  document.querySelectorAll('.filter-tab[data-mode]').forEach(tab => {
+    tab.addEventListener('click', () => switchMode(tab.dataset.mode));
+  });
+
+  document.getElementById('clear-sessions-btn').addEventListener('click', () => {
+    const sessions = getSessions().filter(s => s.date !== today());
+    saveSessions(sessions);
+    renderSessions();
+    updateTodayLabel();
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────
+  updateDisplay();
+  updateDots();
+  renderSessions();
+  updateTodayLabel();
+</script>
+
+</body>
+</html>

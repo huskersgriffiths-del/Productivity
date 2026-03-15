@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Momentum — Home</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand">◆ Momentum</a>
+  <a href="index.html" class="nav-link">Home</a>
+  <a href="habits.html" class="nav-link">Habits</a>
+  <a href="journal.html" class="nav-link">Journal</a>
+  <a href="tasks.html" class="nav-link">Tasks</a>
+  <a href="calendar.html" class="nav-link">Calendar</a>
+  <a href="focus.html" class="nav-link">Focus</a>
+</nav>
+
+<main>
+
+  <!-- ── Hero ── -->
+  <div>
+    <p class="hero-date" id="date-display"></p>
+    <h1 id="greeting">Good morning.</h1>
+    <div class="quote-card">
+      <p class="quote-text" id="quote-text"></p>
+      <p class="quote-author" id="quote-author"></p>
+    </div>
+  </div>
+
+  <!-- ── Stats ── -->
+  <div class="mt-xl">
+    <h2>Today at a glance</h2>
+    <div class="grid-3 mt-md">
+      <div class="card stat-card">
+        <div class="stat-icon">🔥</div>
+        <div class="stat-value" id="stat-streak">0</div>
+        <div class="stat-label">Habit Streak</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon">✓</div>
+        <div class="stat-value" id="stat-tasks">0</div>
+        <div class="stat-label">Tasks Done</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon">⏱</div>
+        <div class="stat-value" id="stat-focus">0m</div>
+        <div class="stat-label">Focus Time</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Quick access ── -->
+  <div class="mt-xl">
+    <h2>Quick access</h2>
+    <div class="grid-2 mt-md">
+      <a href="habits.html" class="quick-link card">
+        <span class="quick-icon">🔥</span>
+        <div>
+          <div class="quick-title">Habits</div>
+          <div class="quick-sub">Build your daily routines</div>
+        </div>
+      </a>
+      <a href="journal.html" class="quick-link card">
+        <span class="quick-icon">📓</span>
+        <div>
+          <div class="quick-title">Journal</div>
+          <div class="quick-sub">Reflect and capture thoughts</div>
+        </div>
+      </a>
+      <a href="tasks.html" class="quick-link card">
+        <span class="quick-icon">✓</span>
+        <div>
+          <div class="quick-title">Tasks</div>
+          <div class="quick-sub">Get things done today</div>
+        </div>
+      </a>
+      <a href="calendar.html" class="quick-link card">
+        <span class="quick-icon">📅</span>
+        <div>
+          <div class="quick-title">Calendar</div>
+          <div class="quick-sub">Plan your schedule</div>
+        </div>
+      </a>
+      <a href="focus.html" class="quick-link card" style="grid-column: 1 / -1;">
+        <span class="quick-icon">⏱</span>
+        <div>
+          <div class="quick-title">Focus Mode</div>
+          <div class="quick-sub">Deep work with Pomodoro timer</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  // Date
+  const now = new Date();
+  document.getElementById('date-display').textContent = now.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  // Greeting
+  document.getElementById('greeting').textContent = getGreeting() + '.';
+
+  // Quote
+  const q = getDailyQuote();
+  document.getElementById('quote-text').textContent = `"${q.text}"`;
+  document.getElementById('quote-author').textContent = `— ${q.author}`;
+
+  // Stats
+  const stats = getStats();
+  document.getElementById('stat-streak').textContent = stats.habitStreak;
+  document.getElementById('stat-tasks').textContent = stats.tasksToday;
+  document.getElementById('stat-focus').textContent = stats.focusToday + 'm';
+</script>
+
+</body>
+</html>

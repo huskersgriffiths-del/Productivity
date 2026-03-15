@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Momentum — Habits</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand">◆ Momentum</a>
+  <a href="index.html" class="nav-link">Home</a>
+  <a href="habits.html" class="nav-link">Habits</a>
+  <a href="journal.html" class="nav-link">Journal</a>
+  <a href="tasks.html" class="nav-link">Tasks</a>
+  <a href="calendar.html" class="nav-link">Calendar</a>
+  <a href="focus.html" class="nav-link">Focus</a>
+</nav>
+
+<main>
+
+  <div class="section-header">
+    <div>
+      <h1>Habits</h1>
+      <p class="text-muted mt-sm" style="font-size:0.85rem;" id="today-label"></p>
+    </div>
+    <div id="streak-badge" style="display:none; text-align:right;">
+      <div style="font-size:1.6rem;font-weight:700;color:var(--accent);" id="streak-count">0</div>
+      <div class="text-sm text-muted">day streak</div>
+    </div>
+  </div>
+
+  <!-- Add habit -->
+  <div class="card">
+    <h2 style="margin-bottom:14px;">Add a habit</h2>
+    <form class="habit-form" id="habit-form">
+      <input type="text" id="habit-input" placeholder="e.g. Meditate, Read 20 pages, Exercise…" autocomplete="off" />
+      <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+  </div>
+
+  <!-- Today's habits -->
+  <div class="mt-lg">
+    <div class="section-header">
+      <h2>Today</h2>
+      <span class="text-sm text-muted" id="completion-label"></span>
+    </div>
+    <div class="card" id="habits-card">
+      <div id="habits-list"></div>
+      <div class="progress-bar-wrap" id="progress-wrap" style="display:none;">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+        <span class="text-sm text-muted" id="progress-label">0 / 0</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  const todayKey = today();
+
+  // Date label
+  document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+
+  function getHabits() { return store.get('habits', []); }
+  function getCompletions() { return store.get('habit_completions', {}); }
+
+  function saveHabits(habits) { store.set('habits', habits); }
+  function saveCompletions(c) { store.set('habit_completions', c); }
+
+  function render() {
+    const habits = getHabits();
+    const completions = getCompletions();
+    const todayComp = completions[todayKey] || {};
+    const list = document.getElementById('habits-list');
+
+    // Streak
+    const streak = getHabitStreak(habits, completions);
+    const badge = document.getElementById('streak-badge');
+    if (habits.length) {
+      badge.style.display = 'block';
+      document.getElementById('streak-count').textContent = streak;
+    } else {
+      badge.style.display = 'none';
+    }
+
+    if (!habits.length) {
+      list.innerHTML = `<div class="empty"><div class="empty-icon">🌱</div><p>No habits yet. Add one above to start building your streak.</p></div>`;
+      document.getElementById('progress-wrap').style.display = 'none';
+      document.getElementById('completion-label').textContent = '';
+      return;
+    }
+
+    const done = habits.filter(h => todayComp[h.id]).length;
+    const pct = Math.round((done / habits.length) * 100);
+
+    document.getElementById('completion-label').textContent = `${done} of ${habits.length} done`;
+    document.getElementById('progress-wrap').style.display = 'flex';
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-label').textContent = `${done} / ${habits.length}`;
+
+    list.innerHTML = habits.map(h => {
+      const isDone = !!todayComp[h.id];
+      const streak = getHabitIndividualStreak(h.id, completions);
+      const streakText = streak > 0 ? `🔥 ${streak} day${streak !== 1 ? 's' : ''}` : 'Start your streak today';
+      return `
+        <div class="habit-item" data-id="${h.id}">
+          <button class="habit-check${isDone ? ' done' : ''}" data-id="${h.id}" title="${isDone ? 'Mark incomplete' : 'Mark complete'}">
+            ${isDone ? '✓' : ''}
+          </button>
+          <div class="habit-info">
+            <div class="habit-name${isDone ? ' done' : ''}">${escapeHtml(h.name)}</div>
+            <div class="habit-streak-label">${streakText}</div>
+          </div>
+          <button class="habit-delete" data-id="${h.id}" title="Delete habit">×</button>
+        </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Add habit
+  document.getElementById('habit-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const input = document.getElementById('habit-input');
+    const name = input.value.trim();
+    if (!name) return;
+    const habits = getHabits();
+    habits.push({ id: generateId(), name, createdAt: new Date().toISOString() });
+    saveHabits(habits);
+    input.value = '';
+    render();
+  });
+
+  // Toggle / delete via delegation
+  document.getElementById('habits-card').addEventListener('click', e => {
+    const checkBtn = e.target.closest('.habit-check');
+    const delBtn = e.target.closest('.habit-delete');
+
+    if (checkBtn) {
+      const id = checkBtn.dataset.id;
+      const completions = getCompletions();
+      if (!completions[todayKey]) completions[todayKey] = {};
+      completions[todayKey][id] = !completions[todayKey][id];
+      if (!completions[todayKey][id]) delete completions[todayKey][id];
+      saveCompletions(completions);
+      render();
+    }
+
+    if (delBtn) {
+      const id = delBtn.dataset.id;
+      if (!confirm('Delete this habit? Your streak history will be preserved.')) return;
+      const habits = getHabits().filter(h => h.id !== id);
+      saveHabits(habits);
+      render();
+    }
+  });
+
+  render();
+</script>
+
+</body>
+</html>

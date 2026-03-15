@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Momentum — Tasks</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand">◆ Momentum</a>
+  <a href="index.html" class="nav-link">Home</a>
+  <a href="habits.html" class="nav-link">Habits</a>
+  <a href="journal.html" class="nav-link">Journal</a>
+  <a href="tasks.html" class="nav-link">Tasks</a>
+  <a href="calendar.html" class="nav-link">Calendar</a>
+  <a href="focus.html" class="nav-link">Focus</a>
+</nav>
+
+<main>
+
+  <div class="section-header">
+    <h1>Tasks</h1>
+    <span class="text-sm text-muted" id="done-count"></span>
+  </div>
+
+  <!-- Add task -->
+  <div class="card">
+    <form class="task-form" id="task-form">
+      <input type="text" id="task-input" placeholder="Add a new task…" autocomplete="off" />
+      <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+  </div>
+
+  <!-- Filter tabs -->
+  <div class="filter-tabs mt-md" id="filter-tabs">
+    <button class="filter-tab active" data-filter="all">All</button>
+    <button class="filter-tab" data-filter="active">Active</button>
+    <button class="filter-tab" data-filter="done">Completed</button>
+  </div>
+
+  <!-- Task list -->
+  <div class="card mt-md" id="tasks-card">
+    <div id="tasks-list"></div>
+    <div id="clear-wrap" style="display:none; padding-top:14px; border-top:1px solid var(--border); margin-top:4px;">
+      <button class="btn btn-ghost btn-sm" id="clear-done-btn">Clear completed</button>
+    </div>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  let currentFilter = 'all';
+
+  function getTasks() { return store.get('tasks', []); }
+  function saveTasks(tasks) { store.set('tasks', tasks); }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function render() {
+    const tasks = getTasks();
+    const todayKey = today();
+
+    const doneTodayCount = tasks.filter(t => t.done && t.doneDate === todayKey).length;
+    document.getElementById('done-count').textContent =
+      doneTodayCount ? `${doneTodayCount} completed today` : '';
+
+    // Filter
+    let visible = tasks;
+    if (currentFilter === 'active') visible = tasks.filter(t => !t.done);
+    if (currentFilter === 'done') visible = tasks.filter(t => t.done);
+
+    const list = document.getElementById('tasks-list');
+    const clearWrap = document.getElementById('clear-wrap');
+
+    const hasDone = tasks.some(t => t.done);
+    clearWrap.style.display = hasDone && currentFilter !== 'active' ? 'block' : 'none';
+
+    if (!visible.length) {
+      const msgs = {
+        all: { icon: '✓', text: 'No tasks yet. Add one above to get started.' },
+        active: { icon: '🎉', text: 'Nothing left to do — all tasks are complete!' },
+        done: { icon: '📭', text: 'No completed tasks yet.' },
+      };
+      const m = msgs[currentFilter];
+      list.innerHTML = `<div class="empty"><div class="empty-icon">${m.icon}</div><p>${m.text}</p></div>`;
+      return;
+    }
+
+    list.innerHTML = visible.map(task => `
+      <div class="task-item" data-id="${task.id}">
+        <button class="task-check${task.done ? ' done' : ''}" data-action="toggle" data-id="${task.id}" title="${task.done ? 'Mark incomplete' : 'Mark complete'}">
+          ${task.done ? '✓' : ''}
+        </button>
+        <span class="task-text${task.done ? ' done' : ''}">${escapeHtml(task.text)}</span>
+        <button class="task-delete" data-action="delete" data-id="${task.id}" title="Delete task">×</button>
+      </div>
+    `).join('');
+  }
+
+  // Add task
+  document.getElementById('task-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const input = document.getElementById('task-input');
+    const text = input.value.trim();
+    if (!text) return;
+    const tasks = getTasks();
+    tasks.unshift({ id: generateId(), text, done: false, doneDate: null, createdAt: new Date().toISOString() });
+    saveTasks(tasks);
+    input.value = '';
+    if (currentFilter === 'done') {
+      currentFilter = 'all';
+      document.querySelectorAll('.filter-tab').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
+    }
+    render();
+  });
+
+  // Toggle / delete via delegation
+  document.getElementById('tasks-card').addEventListener('click', e => {
+    const toggleBtn = e.target.closest('[data-action="toggle"]');
+    const deleteBtn = e.target.closest('[data-action="delete"]');
+
+    if (toggleBtn) {
+      const id = toggleBtn.dataset.id;
+      const tasks = getTasks().map(t => {
+        if (t.id !== id) return t;
+        const done = !t.done;
+        return { ...t, done, doneDate: done ? today() : null };
+      });
+      saveTasks(tasks);
+      render();
+    }
+
+    if (deleteBtn) {
+      const id = deleteBtn.dataset.id;
+      saveTasks(getTasks().filter(t => t.id !== id));
+      render();
+    }
+  });
+
+  // Clear completed
+  document.getElementById('clear-done-btn').addEventListener('click', () => {
+    if (!confirm('Remove all completed tasks?')) return;
+    saveTasks(getTasks().filter(t => !t.done));
+    render();
+  });
+
+  // Filter tabs
+  document.getElementById('filter-tabs').addEventListener('click', e => {
+    const tab = e.target.closest('.filter-tab');
+    if (!tab) return;
+    currentFilter = tab.dataset.filter;
+    document.querySelectorAll('.filter-tab').forEach(b => b.classList.toggle('active', b === tab));
+    render();
+  });
+
+  render();
+</script>
+
+</body>
+</html>
