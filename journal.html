@@ -16,25 +16,48 @@
   <a href="tasks.html" class="nav-link">Tasks</a>
   <a href="calendar.html" class="nav-link">Calendar</a>
   <a href="focus.html" class="nav-link">Focus</a>
+  <a href="metrics.html" class="nav-link">Metrics</a>
 </nav>
 
 <main>
 
-  <h1>Journal</h1>
+  <div class="section-header">
+    <h1>Journal</h1>
+    <div style="text-align:right;" id="streak-section">
+      <div style="font-size:1.6rem;font-weight:700;letter-spacing:-1px;color:var(--accent);" id="journal-streak">0</div>
+      <div class="text-sm text-muted">day streak 📓</div>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid-3 mt-sm" id="journal-stats" style="margin-bottom:18px;">
+    <div class="card" style="padding:14px;text-align:center;">
+      <div style="font-size:1.4rem;font-weight:700;color:var(--accent);" id="stat-total">0</div>
+      <div class="text-sm text-muted" style="margin-top:3px;">Total Entries</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center;">
+      <div style="font-size:1.4rem;font-weight:700;color:var(--accent);" id="stat-month">0</div>
+      <div class="text-sm text-muted" style="margin-top:3px;">This Month</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center;">
+      <div style="font-size:1.4rem;font-weight:700;color:var(--accent);" id="stat-best">0</div>
+      <div class="text-sm text-muted" style="margin-top:3px;">Best Streak</div>
+    </div>
+  </div>
 
   <!-- Compose -->
-  <div class="card mt-md">
-    <h2 style="margin-bottom:14px;">New entry</h2>
+  <div class="card">
+    <div class="section-label">New Entry</div>
     <form class="journal-compose" id="journal-form">
       <input type="date" id="entry-date" />
       <textarea id="entry-text" placeholder="What's on your mind? Reflect on your day, capture ideas, or write anything you'd like to remember…" rows="5"></textarea>
-      <div style="display:flex; justify-content:flex-end;">
+      <div style="display:flex;justify-content:flex-end;">
         <button type="submit" class="btn btn-primary">Save entry</button>
       </div>
     </form>
   </div>
 
-  <!-- Past entries -->
+  <!-- Entries list -->
   <div class="mt-xl">
     <div class="section-header">
       <h2>Past entries</h2>
@@ -49,90 +72,90 @@
 
 <script src="app.js"></script>
 <script>
-  // Set default date to today
   document.getElementById('entry-date').value = today();
 
-  function getEntries() {
-    return store.get('journal', []);
-  }
-
-  function saveEntries(entries) {
-    store.set('journal', entries);
-  }
+  function getEntries() { return store.get('journal', []); }
+  function saveEntries(e) { store.set('journal', e); }
 
   function escapeHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function getBestJournalStreak() {
+    const entries = getEntries();
+    const dates = [...new Set(entries.map(e => e.date))].sort();
+    if (!dates.length) return 0;
+    let best = 1, cur = 1;
+    for (let i = 1; i < dates.length; i++) {
+      const diff = Math.round((new Date(dates[i]) - new Date(dates[i-1])) / 86400000);
+      if (diff === 1) { cur++; if (cur > best) best = cur; } else cur = 1;
+    }
+    return best;
   }
 
   function formatEntryDate(iso) {
     const [y, m, d] = iso.split('-');
-    return new Date(+y, +m - 1, +d).toLocaleDateString('en-US', {
+    return new Date(+y, +m-1, +d).toLocaleDateString('en-US', {
       weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
     });
   }
 
   function render() {
-    const entries = getEntries().slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const entries = getEntries();
+    const sorted  = entries.slice().sort((a,b) => b.createdAt.localeCompare(a.createdAt));
+    const now     = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+    // Stats
+    const streak = getJournalStreak();
+    document.getElementById('journal-streak').textContent = streak;
+    document.getElementById('stat-total').textContent = entries.length;
+    document.getElementById('stat-month').textContent = entries.filter(e => e.date.startsWith(monthKey)).length;
+    document.getElementById('stat-best').textContent  = getBestJournalStreak();
+
+    document.getElementById('entry-count').textContent =
+      entries.length ? `${entries.length} entr${entries.length===1?'y':'ies'}` : '';
+
     const list = document.getElementById('entries-list');
-    const count = document.getElementById('entry-count');
-
-    count.textContent = entries.length ? `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}` : '';
-
-    if (!entries.length) {
+    if (!sorted.length) {
       list.innerHTML = `<div class="empty"><div class="empty-icon">📓</div><p>No entries yet. Write your first one above.</p></div>`;
       return;
     }
 
-    list.innerHTML = entries.map(entry => `
+    list.innerHTML = sorted.map(entry => `
       <div class="journal-entry" data-id="${entry.id}">
         <div class="journal-entry-date">${formatEntryDate(entry.date)}</div>
         <div class="journal-entry-preview">${escapeHtml(entry.text)}</div>
         <div class="journal-entry-actions">
           <button class="btn btn-ghost btn-sm" data-action="delete" data-id="${entry.id}">Delete</button>
         </div>
-      </div>
-    `).join('');
+      </div>`).join('');
   }
 
-  // Toggle expand
   document.getElementById('entries-list').addEventListener('click', e => {
-    const delBtn = e.target.closest('[data-action="delete"]');
-    if (delBtn) {
+    const del = e.target.closest('[data-action="delete"]');
+    if (del) {
       e.stopPropagation();
-      if (!confirm('Delete this journal entry?')) return;
-      const entries = getEntries().filter(en => en.id !== delBtn.dataset.id);
-      saveEntries(entries);
+      if (!confirm('Delete this entry?')) return;
+      saveEntries(getEntries().filter(en => en.id !== del.dataset.id));
       render();
       return;
     }
-
     const entry = e.target.closest('.journal-entry');
-    if (entry) {
-      entry.classList.toggle('open');
-    }
+    if (entry) entry.classList.toggle('open');
   });
 
-  // Save entry
   document.getElementById('journal-form').addEventListener('submit', e => {
     e.preventDefault();
     const text = document.getElementById('entry-text').value.trim();
     const date = document.getElementById('entry-date').value || today();
     if (!text) return;
-
     const entries = getEntries();
-    entries.push({
-      id: generateId(),
-      date,
-      text,
-      createdAt: new Date().toISOString(),
-    });
+    entries.push({ id: generateId(), date, text, createdAt: new Date().toISOString() });
     saveEntries(entries);
-
     document.getElementById('entry-text').value = '';
     document.getElementById('entry-date').value = today();
     render();
-
-    // Scroll to entries
     document.getElementById('entries-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
 

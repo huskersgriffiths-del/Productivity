@@ -20,311 +20,350 @@
 
 <main>
 
+  <!-- Header -->
   <div class="section-header">
     <div>
       <h1>Habits</h1>
-      <p class="text-muted mt-sm" style="font-size:0.85rem;" id="today-label"></p>
-    </div>
-    <div id="streak-badge" style="display:none; text-align:right;">
-      <div style="font-size:1.8rem;font-weight:700;color:var(--accent);letter-spacing:-1px;" id="streak-count">0</div>
-      <div class="text-sm text-muted">day streak 🔥</div>
-    </div>
-  </div>
-
-  <!-- Add habit -->
-  <div class="card">
-    <div class="section-label">Add a new habit</div>
-    <form class="habit-form" id="habit-form">
-      <input type="text" id="habit-input" placeholder="e.g. Meditate, Read 20 pages, Exercise, Cold shower…" autocomplete="off" />
-      <button type="submit" class="btn btn-primary">Add</button>
-    </form>
-  </div>
-
-  <!-- Today's overview -->
-  <div class="card mt-md" id="overview-card" style="display:none;">
-    <div class="section-header" style="margin-bottom:10px;">
-      <div class="section-label" style="margin-bottom:0;">Today's Progress</div>
-      <span class="text-sm text-muted" id="completion-label"></span>
-    </div>
-    <div class="progress-bar-wrap" style="margin-top:0; padding-top:0; border-top:none;">
-      <div class="progress-bar-bg">
-        <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+      <div class="habit-month-nav mt-sm">
+        <button class="hm-nav-btn" id="prev-month">‹</button>
+        <span class="habit-month-label" id="month-label"></span>
+        <button class="hm-nav-btn" id="next-month">›</button>
       </div>
-      <span class="text-sm text-muted" id="progress-pct">0%</span>
+    </div>
+    <div style="text-align:right;" id="streak-badge">
+      <div style="font-size:1.6rem;font-weight:700;letter-spacing:-1px;color:var(--accent);" id="streak-count">0</div>
+      <div class="text-sm text-muted">overall streak 🔥</div>
     </div>
   </div>
 
-  <!-- Habit cards -->
-  <div class="mt-lg">
+  <!-- Habit grid -->
+  <div class="habit-grid-outer" id="grid-outer">
+    <table class="habit-table" id="habit-table"></table>
+  </div>
+
+  <!-- Notes -->
+  <div class="card mt-lg">
     <div class="section-header">
-      <h2>Your habits</h2>
+      <h2>Notes</h2>
+      <button class="btn btn-ghost btn-sm" id="add-note-btn">+ Add Note</button>
     </div>
-    <div class="card" id="habits-card">
-      <div id="habits-list"></div>
+    <div id="note-compose" style="display:none; margin-bottom:14px;">
+      <textarea id="note-input" placeholder="Reflect on your habits this month…" rows="3"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+        <button class="btn btn-ghost btn-sm" id="cancel-note">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="save-note">Save</button>
+      </div>
     </div>
+    <div id="notes-list"></div>
   </div>
 
 </main>
 
 <script src="app.js"></script>
 <script>
-  const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const MONTH_NAMES = ['January','February','March','April','May','June',
+                       'July','August','September','October','November','December'];
+  const WD_LETTER   = ['S','M','T','W','T','F','S'];
 
-  // Per-habit heatmap month state: { habitId: { year, month } }
-  const heatmapState = {};
-
-  const todayKey = today();
-
-  document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
+  let viewYear  = new Date().getFullYear();
+  let viewMonth = new Date().getMonth();
 
   function getHabits()      { return store.get('habits', []); }
   function getCompletions() { return store.get('habit_completions', {}); }
+  function getNotes()       { return store.get('habit_notes', []); }
   function saveHabits(h)    { store.set('habits', h); }
   function saveCompletions(c){ store.set('habit_completions', c); }
+  function saveNotes(n)     { store.set('habit_notes', n); }
 
   function escapeHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // ── Build heatmap HTML for one habit ─────────────────────────
-  function buildHeatmap(habitId, year, month) {
+  // ── Build the full grid ────────────────────────────────────
+  function buildGrid() {
+    const habits      = getHabits();
     const completions = getCompletions();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    // Monday-start: Mon=0 … Sun=6
-    const rawFirstDay = new Date(year, month, 1).getDay(); // 0=Sun
-    const firstDayMon = (rawFirstDay + 6) % 7;
+    const todayStr    = today();
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
-    let cells = '';
-    // Empty filler cells
-    for (let i = 0; i < firstDayMon; i++) {
-      cells += '<div class="heatmap-cell empty" title=""></div>';
-    }
-
-    const nowStr = today();
-    let doneDays = 0, pastDays = 0;
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const isToday = key === nowStr;
-      const isFuture = key > nowStr;
-      const isDone = !isFuture && !!(getCompletions()[key] || {})[habitId];
-
-      if (!isFuture) {
-        pastDays++;
-        if (isDone) doneDays++;
-      }
-
-      let cls = 'heatmap-cell';
-      if (isFuture) cls += ' future';
-      else if (isDone) cls += ' done';
-      if (isToday) cls += ' today';
-
-      const titleText = isDone ? `${key} ✓` : (isFuture ? '' : key);
-      cells += `<div class="${cls}" title="${titleText}"></div>`;
-    }
-
-    const rate = pastDays > 0 ? Math.round((doneDays / pastDays) * 100) : 0;
-
-    return { cells, doneDays, pastDays, rate };
-  }
-
-  // ── Render heatmap section for a habit ───────────────────────
-  function renderHeatmapSection(habitId) {
-    const now = new Date();
-    if (!heatmapState[habitId]) {
-      heatmapState[habitId] = { year: now.getFullYear(), month: now.getMonth() };
-    }
-    const { year, month } = heatmapState[habitId];
-    const { cells, doneDays, pastDays, rate } = buildHeatmap(habitId, year, month);
-    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
-
-    return `
-      <div class="heatmap-nav">
-        <button class="heatmap-nav-btn" data-action="hm-prev" data-id="${habitId}">‹</button>
-        <span class="heatmap-month-label">${MONTH_NAMES[month]} ${year}</span>
-        <button class="heatmap-nav-btn" data-action="hm-next" data-id="${habitId}" ${isCurrentMonth ? 'disabled style="opacity:0.3;cursor:default;"' : ''}>›</button>
-      </div>
-      <div class="heatmap-weekdays">
-        ${WEEKDAY_LABELS.map(l => `<div class="heatmap-wd-label">${l}</div>`).join('')}
-      </div>
-      <div class="heatmap-grid">${cells}</div>
-      <div class="heatmap-footer">
-        <span><strong>${doneDays}</strong> of ${pastDays} days completed</span>
-        <span style="color:${rate >= 70 ? 'var(--success)' : rate >= 40 ? 'var(--accent)' : 'var(--danger)'}; font-weight:600;">${rate}% consistency</span>
-      </div>`;
-  }
-
-  // ── Render all habits ────────────────────────────────────────
-  function render() {
-    const habits = getHabits();
-    const completions = getCompletions();
-    const todayComp = completions[todayKey] || {};
-
-    // Overview card
-    const overviewCard = document.getElementById('overview-card');
-    if (habits.length) {
-      overviewCard.style.display = 'block';
-      const done = habits.filter(h => todayComp[h.id]).length;
-      const pct = Math.round((done / habits.length) * 100);
-      document.getElementById('completion-label').textContent = `${done} / ${habits.length} done`;
-      document.getElementById('progress-fill').style.width = pct + '%';
-      document.getElementById('progress-pct').textContent = pct + '%';
-    } else {
-      overviewCard.style.display = 'none';
-    }
-
-    // Streak badge
+    // Update month label & streak
+    document.getElementById('month-label').textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
     const streak = getHabitStreak(habits, completions);
-    const badge = document.getElementById('streak-badge');
-    badge.style.display = habits.length ? 'block' : 'none';
     document.getElementById('streak-count').textContent = streak;
+    document.getElementById('streak-badge').style.display = habits.length ? 'block' : 'none';
 
-    const list = document.getElementById('habits-list');
+    // Disable next-month if already on current month
+    const now = new Date();
+    document.getElementById('next-month').disabled =
+      viewYear === now.getFullYear() && viewMonth === now.getMonth();
+    document.getElementById('next-month').style.opacity =
+      (viewYear === now.getFullYear() && viewMonth === now.getMonth()) ? '0.3' : '1';
+
+    // Day keys for this month
+    const days = Array.from({ length: daysInMonth }, (_, i) => {
+      const d = i + 1;
+      const key = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const date = new Date(viewYear, viewMonth, d);
+      const wd   = date.getDay();
+      const isToday   = key === todayStr;
+      const isFuture  = key > todayStr;
+      const isWeekend = wd === 0 || wd === 6;
+      return { d, key, wd, isToday, isFuture, isWeekend };
+    });
+
+    // ── Header rows ──────────────────────────────────────────
+    const dayNumRow = days.map(({ d, wd, isToday, isWeekend }) =>
+      `<th class="ht-day-head${isToday ? ' is-today' : ''}${isWeekend ? ' is-weekend' : ''}">${d}</th>`
+    ).join('');
+
+    const wdRow = days.map(({ wd, isToday, isWeekend }) =>
+      `<th class="ht-day-head${isToday ? ' is-today' : ''}${isWeekend ? ' is-weekend' : ''}">${WD_LETTER[wd]}</th>`
+    ).join('');
+
+    const thead = `
+      <thead>
+        <tr class="ht-head-row">
+          <th class="ht-name-head"><div class="ht-name-head-inner">Habits</div></th>
+          ${dayNumRow}
+          <th class="ht-goal-head">Goal</th>
+          <th class="ht-achieved-head">Achieved</th>
+        </tr>
+        <tr class="ht-wd-row">
+          <th class="ht-name-head"><div class="ht-name-head-inner" style="color:var(--text-muted);font-size:0.62rem;">🔥 streak</div></th>
+          ${wdRow}
+          <th></th><th></th>
+        </tr>
+      </thead>`;
+
+    // ── Body rows ────────────────────────────────────────────
+    let tbody = '<tbody>';
 
     if (!habits.length) {
-      list.innerHTML = `<div class="empty"><div class="empty-icon">🌱</div><p>No habits yet. Add one above to start building momentum.</p></div>`;
-      return;
+      tbody += `<tr><td colspan="${daysInMonth + 3}"
+        style="padding:32px;text-align:center;color:var(--text-muted);font-size:0.84rem;">
+        No habits yet — add one below to start tracking.
+        </td></tr>`;
+    } else {
+      habits.forEach(h => {
+        // Count achieved this month (past days only)
+        let achieved = 0;
+        days.forEach(({ key, isFuture }) => {
+          if (!isFuture && (completions[key] || {})[h.id]) achieved++;
+        });
+
+        const goal = h.goal || 20;
+        const achClass = achieved >= goal ? 'ach-green'
+          : achieved >= Math.round(goal * 0.65) ? 'ach-yellow' : 'ach-red';
+
+        const curStreak = getHabitIndividualStreak(h.id, completions);
+
+        const cells = days.map(({ key, isToday, isFuture, isWeekend }) => {
+          const isDone = !!(completions[key] || {})[h.id];
+          let cls = 'ht-day-cell';
+          if (isDone)    cls += ' ht-done';
+          if (isToday)   cls += ' ht-today';
+          if (isFuture)  cls += ' ht-future';
+          if (isWeekend) cls += ' ht-weekend';
+          return `<td class="${cls}" data-action="toggle" data-habit="${h.id}" data-key="${key}">${isDone ? '✓' : ''}</td>`;
+        }).join('');
+
+        tbody += `
+          <tr class="ht-body-row" data-habit-id="${h.id}">
+            <td class="ht-name-cell">
+              <div class="ht-name-inner">
+                <span class="ht-habit-name" title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</span>
+                ${curStreak > 0 ? `<span class="ht-streak-pill">🔥 ${curStreak}</span>` : ''}
+                <button class="ht-del-btn" data-action="delete" data-id="${h.id}" title="Delete">×</button>
+              </div>
+            </td>
+            ${cells}
+            <td class="ht-goal-cell">
+              <input type="number" class="goal-input" value="${goal}" min="1" max="${daysInMonth}"
+                data-habit-id="${h.id}" title="Monthly goal" />
+            </td>
+            <td class="ht-achieved-cell ${achClass}">${achieved}</td>
+          </tr>`;
+      });
     }
 
-    list.innerHTML = habits.map(h => {
-      const isDone = !!todayComp[h.id];
-      const curStreak = getHabitIndividualStreak(h.id, completions);
-      const bestStreak = getBestStreak(h.id, completions);
-      const now = new Date();
-      const monthStats = getHabitMonthStats(h.id, completions, now.getFullYear(), now.getMonth());
-      const totalDone = Object.values(completions).filter(day => day[h.id]).length;
-      const isOpen = document.querySelector(`.habit-card[data-id="${h.id}"]`)?.classList.contains('open');
+    tbody += '</tbody>';
 
-      return `
-        <div class="habit-card${isOpen ? ' open' : ''}" data-id="${h.id}">
-          <div class="habit-card-header" data-action="toggle-expand" data-id="${h.id}">
-            <button class="habit-check${isDone ? ' done' : ''}" data-action="check" data-id="${h.id}" title="Toggle today">
-              ${isDone ? '✓' : ''}
-            </button>
-            <div class="habit-info">
-              <div class="habit-name${isDone ? ' done' : ''}">${escapeHtml(h.name)}</div>
-              <div class="habit-meta">
-                🔥 ${curStreak} day streak &nbsp;·&nbsp; ${monthStats.done}/${monthStats.pastDays} this month
-              </div>
+    // ── Add-habit footer ─────────────────────────────────────
+    const tfoot = `
+      <tfoot>
+        <tr class="ht-add-row">
+          <td colspan="${daysInMonth + 3}">
+            <div id="add-btn-wrap">
+              <button class="ht-add-btn" id="show-add-form">+ New Habit</button>
             </div>
-            <button class="habit-expand-btn" data-action="toggle-expand" data-id="${h.id}" title="Show details">▾</button>
-            <button class="habit-delete" data-action="delete" data-id="${h.id}" title="Delete">×</button>
-          </div>
-          <div class="habit-detail">
-            <div class="habit-stat-grid">
-              <div class="habit-stat">
-                <div class="habit-stat-value">${curStreak}</div>
-                <div class="habit-stat-label">Current<br>Streak</div>
-              </div>
-              <div class="habit-stat">
-                <div class="habit-stat-value">${bestStreak}</div>
-                <div class="habit-stat-label">Best<br>Streak</div>
-              </div>
-              <div class="habit-stat">
-                <div class="habit-stat-value">${monthStats.rate}%</div>
-                <div class="habit-stat-label">This<br>Month</div>
-              </div>
-              <div class="habit-stat">
-                <div class="habit-stat-value">${totalDone}</div>
-                <div class="habit-stat-label">Total<br>Days</div>
-              </div>
+            <div class="ht-add-form" id="add-habit-form" style="display:none;">
+              <input type="text" id="new-habit-name" placeholder="Habit name…" autocomplete="off" />
+              <input type="number" id="new-habit-goal" value="20" min="1" max="${daysInMonth}" placeholder="Goal" title="Monthly goal days" />
+              <button class="btn btn-primary btn-sm" id="confirm-add">Add</button>
+              <button class="btn btn-ghost btn-sm" id="cancel-add">Cancel</button>
             </div>
-            <div class="heatmap-section" id="hm-${h.id}">
-              ${renderHeatmapSection(h.id)}
-            </div>
-          </div>
-        </div>`;
-    }).join('');
+          </td>
+        </tr>
+      </tfoot>`;
+
+    document.getElementById('habit-table').innerHTML = thead + tbody + tfoot;
+    attachTableListeners();
   }
 
-  // ── Add habit ────────────────────────────────────────────────
-  document.getElementById('habit-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const input = document.getElementById('habit-input');
-    const name = input.value.trim();
-    if (!name) return;
+  // ── Table event listeners ──────────────────────────────────
+  function attachTableListeners() {
+    const table = document.getElementById('habit-table');
+
+    table.addEventListener('click', e => {
+      const toggle = e.target.closest('[data-action="toggle"]');
+      const del    = e.target.closest('[data-action="delete"]');
+
+      if (toggle) {
+        const { habit, key } = toggle.dataset;
+        const comp = getCompletions();
+        if (!comp[key]) comp[key] = {};
+        comp[key][habit] = !comp[key][habit];
+        if (!comp[key][habit]) delete comp[key][habit];
+        saveCompletions(comp);
+        buildGrid();
+        return;
+      }
+
+      if (del) {
+        if (!confirm('Delete this habit? Your history will be preserved.')) return;
+        saveHabits(getHabits().filter(h => h.id !== del.dataset.id));
+        buildGrid();
+        return;
+      }
+
+      if (e.target.id === 'show-add-form') {
+        document.getElementById('add-btn-wrap').style.display = 'none';
+        document.getElementById('add-habit-form').style.display = 'flex';
+        document.getElementById('new-habit-name').focus();
+        return;
+      }
+
+      if (e.target.id === 'cancel-add') {
+        document.getElementById('add-btn-wrap').style.display = 'block';
+        document.getElementById('add-habit-form').style.display = 'none';
+        document.getElementById('new-habit-name').value = '';
+        return;
+      }
+
+      if (e.target.id === 'confirm-add') {
+        confirmAddHabit();
+        return;
+      }
+    });
+
+    // Goal input blur — save updated goal
+    table.addEventListener('change', e => {
+      const input = e.target.closest('.goal-input');
+      if (!input) return;
+      const id = input.dataset.habitId;
+      const val = Math.max(1, Math.min(31, parseInt(input.value) || 20));
+      input.value = val;
+      const habits = getHabits().map(h => h.id === id ? { ...h, goal: val } : h);
+      saveHabits(habits);
+      buildGrid();
+    });
+
+    // Enter key in add-form
+    table.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.id === 'new-habit-name') confirmAddHabit();
+    });
+  }
+
+  function confirmAddHabit() {
+    const nameEl = document.getElementById('new-habit-name');
+    const goalEl = document.getElementById('new-habit-goal');
+    const name = nameEl.value.trim();
+    if (!name) { nameEl.focus(); return; }
+    const goal = Math.max(1, Math.min(31, parseInt(goalEl.value) || 20));
     const habits = getHabits();
-    habits.push({ id: generateId(), name, createdAt: new Date().toISOString() });
+    habits.push({ id: generateId(), name, goal, createdAt: new Date().toISOString() });
     saveHabits(habits);
-    input.value = '';
-    render();
+    buildGrid();
+  }
+
+  // ── Month navigation ───────────────────────────────────────
+  document.getElementById('prev-month').addEventListener('click', () => {
+    viewMonth--;
+    if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+    buildGrid();
+    renderNotes();
   });
 
-  // ── Event delegation on the habits card ─────────────────────
-  document.getElementById('habits-card').addEventListener('click', e => {
-    const checkBtn = e.target.closest('[data-action="check"]');
-    const delBtn   = e.target.closest('[data-action="delete"]');
-    const expBtn   = e.target.closest('[data-action="toggle-expand"]');
-    const hmPrev   = e.target.closest('[data-action="hm-prev"]');
-    const hmNext   = e.target.closest('[data-action="hm-next"]');
-
-    if (checkBtn) {
-      e.stopPropagation();
-      const id = checkBtn.dataset.id;
-      const completions = getCompletions();
-      if (!completions[todayKey]) completions[todayKey] = {};
-      completions[todayKey][id] = !completions[todayKey][id];
-      if (!completions[todayKey][id]) delete completions[todayKey][id];
-      saveCompletions(completions);
-      render();
-      return;
-    }
-
-    if (delBtn) {
-      e.stopPropagation();
-      const id = delBtn.dataset.id;
-      if (!confirm('Delete this habit? Your history will be preserved.')) return;
-      saveHabits(getHabits().filter(h => h.id !== id));
-      render();
-      return;
-    }
-
-    if (expBtn || e.target.closest('[data-action="toggle-expand"]')) {
-      const id = (expBtn || e.target.closest('[data-action="toggle-expand"]')).dataset.id;
-      const card = document.querySelector(`.habit-card[data-id="${id}"]`);
-      if (card) {
-        card.classList.toggle('open');
-        // Re-render heatmap section when opening
-        if (card.classList.contains('open')) {
-          const section = document.getElementById(`hm-${id}`);
-          if (section) section.innerHTML = renderHeatmapSection(id);
-        }
-      }
-      return;
-    }
-
-    if (hmPrev) {
-      const id = hmPrev.dataset.id;
-      const state = heatmapState[id] || { year: new Date().getFullYear(), month: new Date().getMonth() };
-      let { year, month } = state;
-      month--;
-      if (month < 0) { month = 11; year--; }
-      heatmapState[id] = { year, month };
-      const section = document.getElementById(`hm-${id}`);
-      if (section) section.innerHTML = renderHeatmapSection(id);
-      return;
-    }
-
-    if (hmNext) {
-      const id = hmNext.dataset.id;
-      const state = heatmapState[id] || { year: new Date().getFullYear(), month: new Date().getMonth() };
-      let { year, month } = state;
-      const now = new Date();
-      if (year < now.getFullYear() || month < now.getMonth()) {
-        month++;
-        if (month > 11) { month = 0; year++; }
-        heatmapState[id] = { year, month };
-        const section = document.getElementById(`hm-${id}`);
-        if (section) section.innerHTML = renderHeatmapSection(id);
-      }
-      return;
+  document.getElementById('next-month').addEventListener('click', () => {
+    const now = new Date();
+    if (viewYear < now.getFullYear() || viewMonth < now.getMonth()) {
+      viewMonth++;
+      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      buildGrid();
+      renderNotes();
     }
   });
 
-  render();
+  // ── Notes ──────────────────────────────────────────────────
+  function renderNotes() {
+    const monthKey = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}`;
+    const notes = getNotes().filter(n => n.monthKey === monthKey);
+    const list  = document.getElementById('notes-list');
+
+    if (!notes.length) {
+      list.innerHTML = '<p class="text-sm text-muted" style="padding:8px 0;">No notes for this month yet.</p>';
+      return;
+    }
+
+    list.innerHTML = notes.slice().reverse().map(n => `
+      <div class="note-item">
+        <div class="note-header">
+          <span class="note-date">${n.date}</span>
+          <button class="note-del" data-id="${n.id}" title="Delete">×</button>
+        </div>
+        <div class="note-text">${escapeHtml(n.text)}</div>
+      </div>`).join('');
+
+    list.querySelectorAll('.note-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        saveNotes(getNotes().filter(n => n.id !== btn.dataset.id));
+        renderNotes();
+      });
+    });
+  }
+
+  document.getElementById('add-note-btn').addEventListener('click', () => {
+    const compose = document.getElementById('note-compose');
+    compose.style.display = compose.style.display === 'none' ? 'block' : 'none';
+    if (compose.style.display === 'block') document.getElementById('note-input').focus();
+  });
+
+  document.getElementById('cancel-note').addEventListener('click', () => {
+    document.getElementById('note-compose').style.display = 'none';
+    document.getElementById('note-input').value = '';
+  });
+
+  document.getElementById('save-note').addEventListener('click', () => {
+    const text = document.getElementById('note-input').value.trim();
+    if (!text) return;
+    const monthKey = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}`;
+    const notes = getNotes();
+    notes.push({
+      id: generateId(),
+      monthKey,
+      date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      text,
+      createdAt: new Date().toISOString(),
+    });
+    saveNotes(notes);
+    document.getElementById('note-input').value = '';
+    document.getElementById('note-compose').style.display = 'none';
+    renderNotes();
+  });
+
+  // ── Init ───────────────────────────────────────────────────
+  buildGrid();
+  renderNotes();
 </script>
 
 </body>

@@ -5,6 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Momentum — Tasks</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── Tasks-specific ── */
+    .task-tabs { display: flex; gap: 3px; margin-bottom: 14px; }
+    .task-tab {
+      padding: 6px 14px; border-radius: 6px; font-size: 0.78rem; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--border); background: transparent;
+      color: var(--text-muted); font-family: 'DM Sans', sans-serif; transition: all 0.12s;
+    }
+    .task-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .task-tab:not(.active):hover { background: var(--surface); color: var(--text); }
+
+    .group-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+    .group-tab {
+      padding: 4px 12px; border-radius: 99px; font-size: 0.74rem; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--border); background: transparent;
+      color: var(--text-muted); font-family: 'DM Sans', sans-serif; transition: all 0.12s;
+    }
+    .group-tab.active { background: var(--surface); color: var(--text); border-color: var(--border2); }
+    .group-tab:hover  { background: var(--surface); color: var(--text); }
+    .group-tag {
+      display: inline-block; font-size: 0.66rem; padding: 1px 7px; border-radius: 99px;
+      background: var(--accent-dim); color: var(--accent); margin-right: 4px;
+    }
+    .task-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+    .task-meta .overdue { color: var(--danger); }
+    .task-meta .due-soon { color: var(--warn); }
+
+    .add-task-form { display: flex; flex-direction: column; gap: 8px; }
+    .add-task-row  { display: flex; gap: 8px; flex-wrap: wrap; }
+    .add-task-row input[type="text"] { flex: 1; min-width: 160px; }
+    .add-task-row select { width: 130px; }
+    .add-task-row input[type="date"],
+    .add-task-row input[type="time"] { width: 130px; }
+
+    .section-divider {
+      font-size: 0.64rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+      color: var(--text-muted); padding: 12px 0 6px; border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .section-divider:first-child { border-top: none; padding-top: 0; }
+    .overdue-badge {
+      display: inline-block; font-size: 0.62rem; padding: 1px 6px; border-radius: 99px;
+      background: rgba(248,113,113,0.12); color: var(--danger); margin-left: 6px;
+    }
+  </style>
 </head>
 <body>
 
@@ -16,34 +61,61 @@
   <a href="tasks.html" class="nav-link">Tasks</a>
   <a href="calendar.html" class="nav-link">Calendar</a>
   <a href="focus.html" class="nav-link">Focus</a>
+  <a href="metrics.html" class="nav-link">Metrics</a>
 </nav>
 
 <main>
 
   <div class="section-header">
     <h1>Tasks</h1>
-    <span class="text-sm text-muted" id="done-count"></span>
+    <div style="text-align:right;">
+      <span class="text-sm text-muted" id="streak-display"></span>
+    </div>
   </div>
 
   <!-- Add task -->
   <div class="card">
-    <form class="task-form" id="task-form">
-      <input type="text" id="task-input" placeholder="Add a new task…" autocomplete="off" />
-      <button type="submit" class="btn btn-primary">Add</button>
-    </form>
+    <div class="section-label">New Task</div>
+    <div class="add-task-form" id="add-task-form">
+      <input type="text" id="task-input" placeholder="What needs to get done?" autocomplete="off" />
+      <div class="add-task-row">
+        <select id="task-group">
+          <option value="">No group</option>
+        </select>
+        <input type="date" id="task-due-date" title="Due date" />
+        <input type="time" id="task-due-time" title="Due time" />
+        <button class="btn btn-primary" id="add-task-btn">Add</button>
+      </div>
+    </div>
   </div>
 
-  <!-- Filter tabs -->
-  <div class="filter-tabs mt-md" id="filter-tabs">
-    <button class="filter-tab active" data-filter="all">All</button>
-    <button class="filter-tab" data-filter="active">Active</button>
-    <button class="filter-tab" data-filter="done">Completed</button>
+  <!-- Group management -->
+  <div class="card mt-md" id="group-manager">
+    <div class="section-header" style="margin-bottom:8px;">
+      <div class="section-label" style="margin-bottom:0;">Groups</div>
+      <button class="btn btn-ghost btn-sm" id="add-group-btn">+ New Group</button>
+    </div>
+    <div class="group-tabs" id="group-tabs"></div>
+    <div id="add-group-form" style="display:none; display:none;">
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <input type="text" id="group-name-input" placeholder="Group name…" style="flex:1;" />
+        <button class="btn btn-primary btn-sm" id="confirm-group">Add</button>
+        <button class="btn btn-ghost btn-sm" id="cancel-group">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- View tabs: Active / Overdue / Completed -->
+  <div class="task-tabs mt-md">
+    <button class="task-tab active" data-view="active">Active</button>
+    <button class="task-tab" data-view="overdue">Overdue <span id="overdue-count"></span></button>
+    <button class="task-tab" data-view="completed">Completed</button>
   </div>
 
   <!-- Task list -->
-  <div class="card mt-md" id="tasks-card">
+  <div class="card" id="tasks-card">
     <div id="tasks-list"></div>
-    <div id="clear-wrap" style="display:none; padding-top:14px; border-top:1px solid var(--border); margin-top:4px;">
+    <div id="clear-wrap" style="display:none;padding-top:12px;border-top:1px solid var(--border);margin-top:4px;">
       <button class="btn btn-ghost btn-sm" id="clear-done-btn">Clear completed</button>
     </div>
   </div>
@@ -52,93 +124,168 @@
 
 <script src="app.js"></script>
 <script>
-  let currentFilter = 'all';
+  let currentView  = 'active';
+  let currentGroup = 'all';
 
-  function getTasks() { return store.get('tasks', []); }
-  function saveTasks(tasks) { store.set('tasks', tasks); }
+  const GROUPS_KEY = 'task_groups';
+
+  function getTasks()  { return store.get('tasks', []); }
+  function getGroups() { return store.get(GROUPS_KEY, []); }
+  function saveTasks(t) { store.set('tasks', t); }
+  function saveGroups(g){ store.set(GROUPS_KEY, g); }
 
   function escapeHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  function render() {
-    const tasks = getTasks();
-    const todayKey = today();
+  function isOverdue(task) {
+    if (task.done || !task.dueDate) return false;
+    const dueDateStr = task.dueDate + (task.dueTime ? 'T' + task.dueTime : 'T23:59');
+    return new Date(dueDateStr) < new Date();
+  }
 
-    const doneTodayCount = tasks.filter(t => t.done && t.doneDate === todayKey).length;
-    document.getElementById('done-count').textContent =
-      doneTodayCount ? `${doneTodayCount} completed today` : '';
+  function isDueSoon(task) {
+    if (task.done || !task.dueDate || isOverdue(task)) return false;
+    const dueDateStr = task.dueDate + (task.dueTime ? 'T' + task.dueTime : 'T23:59');
+    const diff = new Date(dueDateStr) - new Date();
+    return diff > 0 && diff < 24 * 60 * 60 * 1000; // within 24h
+  }
 
-    // Filter
+  function formatDue(task) {
+    if (!task.dueDate) return null;
+    const [y, m, d] = task.dueDate.split('-');
+    const dateStr = new Date(+y, +m-1, +d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return task.dueTime ? `${dateStr} at ${task.dueTime}` : dateStr;
+  }
+
+  function renderGroups() {
+    const groups  = getGroups();
+    const select  = document.getElementById('task-group');
+    const tabsEl  = document.getElementById('group-tabs');
+
+    // Update select dropdown
+    const selected = select.value;
+    select.innerHTML = '<option value="">No group</option>' +
+      groups.map(g => `<option value="${g.id}"${g.id===selected?' selected':''}>${escapeHtml(g.name)}</option>`).join('');
+
+    // Group filter tabs
+    const allActive = currentGroup === 'all';
+    tabsEl.innerHTML = `<button class="group-tab${allActive?' active':''}" data-gid="all">All</button>` +
+      groups.map(g => `
+        <button class="group-tab${currentGroup===g.id?' active':''}" data-gid="${g.id}">
+          ${escapeHtml(g.name)}
+          <span style="cursor:pointer;margin-left:4px;opacity:0.5;font-size:0.9rem;" data-del-group="${g.id}">×</span>
+        </button>`).join('');
+  }
+
+  function renderTasks() {
+    const tasks  = getTasks();
+    const groups = getGroups();
+    const todayStr = today();
+
+    // Streak
+    const streak = getTaskStreak();
+    document.getElementById('streak-display').textContent =
+      streak ? `🔥 ${streak} day task streak` : '';
+
+    // Overdue count badge
+    const overdueCount = tasks.filter(t => !t.done && isOverdue(t)).length;
+    document.getElementById('overdue-count').textContent =
+      overdueCount ? `(${overdueCount})` : '';
+
+    // Filter by view
     let visible = tasks;
-    if (currentFilter === 'active') visible = tasks.filter(t => !t.done);
-    if (currentFilter === 'done') visible = tasks.filter(t => t.done);
+    if (currentView === 'active')    visible = tasks.filter(t => !t.done && !isOverdue(t));
+    if (currentView === 'overdue')   visible = tasks.filter(t => !t.done && isOverdue(t));
+    if (currentView === 'completed') visible = tasks.filter(t => t.done);
 
-    const list = document.getElementById('tasks-list');
-    const clearWrap = document.getElementById('clear-wrap');
+    // Filter by group
+    if (currentGroup !== 'all') {
+      visible = visible.filter(t => t.groupId === currentGroup);
+    }
 
-    const hasDone = tasks.some(t => t.done);
-    clearWrap.style.display = hasDone && currentFilter !== 'active' ? 'block' : 'none';
+    const list     = document.getElementById('tasks-list');
+    const clearWrap= document.getElementById('clear-wrap');
+    clearWrap.style.display = (currentView === 'completed' && visible.length) ? 'block' : 'none';
 
     if (!visible.length) {
       const msgs = {
-        all: { icon: '✓', text: 'No tasks yet. Add one above to get started.' },
-        active: { icon: '🎉', text: 'Nothing left to do — all tasks are complete!' },
-        done: { icon: '📭', text: 'No completed tasks yet.' },
+        active: { icon: '✓', text: 'No active tasks. Add one above.' },
+        overdue: { icon: '🎉', text: 'Nothing overdue — you\'re all caught up!' },
+        completed: { icon: '📭', text: 'No completed tasks yet.' },
       };
-      const m = msgs[currentFilter];
+      const m = msgs[currentView];
       list.innerHTML = `<div class="empty"><div class="empty-icon">${m.icon}</div><p>${m.text}</p></div>`;
       return;
     }
 
-    list.innerHTML = visible.map(task => `
-      <div class="task-item" data-id="${task.id}">
-        <button class="task-check${task.done ? ' done' : ''}" data-action="toggle" data-id="${task.id}" title="${task.done ? 'Mark incomplete' : 'Mark complete'}">
-          ${task.done ? '✓' : ''}
-        </button>
-        <span class="task-text${task.done ? ' done' : ''}">${escapeHtml(task.text)}</span>
-        <button class="task-delete" data-action="delete" data-id="${task.id}" title="Delete task">×</button>
-      </div>
-    `).join('');
+    const groupMap = Object.fromEntries(groups.map(g => [g.id, g.name]));
+
+    list.innerHTML = visible.map(task => {
+      const overdue = isOverdue(task);
+      const soon    = isDueSoon(task);
+      const due     = formatDue(task);
+      const grpName = task.groupId ? groupMap[task.groupId] : null;
+      const metaParts = [];
+      if (grpName) metaParts.push(`<span class="group-tag">${escapeHtml(grpName)}</span>`);
+      if (due) {
+        const cls = overdue ? 'overdue' : (soon ? 'due-soon' : '');
+        metaParts.push(`<span class="${cls}">${overdue ? '⚠ Overdue · ' : (soon ? '⏰ Due soon · ' : '📅 ')}${escapeHtml(due)}</span>`);
+      }
+
+      return `
+        <div class="task-item" data-id="${task.id}">
+          <button class="task-check${task.done?' done':''}" data-action="toggle" data-id="${task.id}">
+            ${task.done ? '✓' : ''}
+          </button>
+          <div style="flex:1;min-width:0;">
+            <div class="task-text${task.done?' done':''}">${escapeHtml(task.text)}</div>
+            ${metaParts.length ? `<div class="task-meta">${metaParts.join(' ')}</div>` : ''}
+          </div>
+          <button class="task-delete" data-action="delete" data-id="${task.id}">×</button>
+        </div>`;
+    }).join('');
   }
 
   // Add task
-  document.getElementById('task-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const input = document.getElementById('task-input');
-    const text = input.value.trim();
-    if (!text) return;
-    const tasks = getTasks();
-    tasks.unshift({ id: generateId(), text, done: false, doneDate: null, createdAt: new Date().toISOString() });
-    saveTasks(tasks);
-    input.value = '';
-    if (currentFilter === 'done') {
-      currentFilter = 'all';
-      document.querySelectorAll('.filter-tab').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
-    }
-    render();
+  document.getElementById('add-task-btn').addEventListener('click', addTask);
+  document.getElementById('task-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTask();
   });
+
+  function addTask() {
+    const text    = document.getElementById('task-input').value.trim();
+    if (!text) return;
+    const dueDate = document.getElementById('task-due-date').value || null;
+    const dueTime = document.getElementById('task-due-time').value || null;
+    const groupId = document.getElementById('task-group').value || null;
+
+    const tasks = getTasks();
+    tasks.unshift({ id: generateId(), text, done: false, doneDate: null, dueDate, dueTime, groupId, createdAt: new Date().toISOString() });
+    saveTasks(tasks);
+    document.getElementById('task-input').value = '';
+    document.getElementById('task-due-date').value = '';
+    document.getElementById('task-due-time').value = '';
+    renderTasks();
+  }
 
   // Toggle / delete via delegation
   document.getElementById('tasks-card').addEventListener('click', e => {
-    const toggleBtn = e.target.closest('[data-action="toggle"]');
-    const deleteBtn = e.target.closest('[data-action="delete"]');
-
-    if (toggleBtn) {
-      const id = toggleBtn.dataset.id;
+    const tog = e.target.closest('[data-action="toggle"]');
+    const del = e.target.closest('[data-action="delete"]');
+    if (tog) {
+      const id = tog.dataset.id;
       const tasks = getTasks().map(t => {
         if (t.id !== id) return t;
         const done = !t.done;
         return { ...t, done, doneDate: done ? today() : null };
       });
       saveTasks(tasks);
-      render();
+      renderTasks();
     }
-
-    if (deleteBtn) {
-      const id = deleteBtn.dataset.id;
-      saveTasks(getTasks().filter(t => t.id !== id));
-      render();
+    if (del) {
+      saveTasks(getTasks().filter(t => t.id !== del.dataset.id));
+      renderTasks();
     }
   });
 
@@ -146,19 +293,64 @@
   document.getElementById('clear-done-btn').addEventListener('click', () => {
     if (!confirm('Remove all completed tasks?')) return;
     saveTasks(getTasks().filter(t => !t.done));
-    render();
+    renderTasks();
   });
 
-  // Filter tabs
-  document.getElementById('filter-tabs').addEventListener('click', e => {
-    const tab = e.target.closest('.filter-tab');
-    if (!tab) return;
-    currentFilter = tab.dataset.filter;
-    document.querySelectorAll('.filter-tab').forEach(b => b.classList.toggle('active', b === tab));
-    render();
+  // View tabs
+  document.querySelectorAll('.task-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      currentView = tab.dataset.view;
+      document.querySelectorAll('.task-tab').forEach(t => t.classList.toggle('active', t === tab));
+      renderTasks();
+    });
   });
 
-  render();
+  // Group tabs
+  document.getElementById('group-tabs').addEventListener('click', e => {
+    const tab = e.target.closest('[data-gid]');
+    const del = e.target.closest('[data-del-group]');
+    if (del) {
+      if (!confirm('Delete this group?')) return;
+      saveGroups(getGroups().filter(g => g.id !== del.dataset.delGroup));
+      if (currentGroup === del.dataset.delGroup) currentGroup = 'all';
+      renderGroups(); renderTasks();
+      return;
+    }
+    if (tab) {
+      currentGroup = tab.dataset.gid;
+      renderGroups(); renderTasks();
+    }
+  });
+
+  // Add group
+  document.getElementById('add-group-btn').addEventListener('click', () => {
+    const form = document.getElementById('add-group-form');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    if (form.style.display === 'block') document.getElementById('group-name-input').focus();
+  });
+
+  document.getElementById('confirm-group').addEventListener('click', () => {
+    const name = document.getElementById('group-name-input').value.trim();
+    if (!name) return;
+    const groups = getGroups();
+    groups.push({ id: generateId(), name });
+    saveGroups(groups);
+    document.getElementById('group-name-input').value = '';
+    document.getElementById('add-group-form').style.display = 'none';
+    renderGroups(); renderTasks();
+  });
+
+  document.getElementById('cancel-group').addEventListener('click', () => {
+    document.getElementById('add-group-form').style.display = 'none';
+    document.getElementById('group-name-input').value = '';
+  });
+
+  document.getElementById('group-name-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('confirm-group').click();
+  });
+
+  renderGroups();
+  renderTasks();
 </script>
 
 </body>

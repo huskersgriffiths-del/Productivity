@@ -16,11 +16,12 @@
   <a href="tasks.html" class="nav-link">Tasks</a>
   <a href="calendar.html" class="nav-link">Calendar</a>
   <a href="focus.html" class="nav-link">Focus</a>
+  <a href="metrics.html" class="nav-link">Metrics</a>
 </nav>
 
 <main>
 
-  <!-- ── Hero ── -->
+  <!-- Hero -->
   <div>
     <p class="hero-date" id="date-display"></p>
     <h1 id="greeting">Good morning.</h1>
@@ -30,29 +31,19 @@
     </div>
   </div>
 
-  <!-- ── Productivity Score + Breakdown ── -->
-  <div class="grid-2 mt-xl" style="align-items: start;">
-
-    <!-- Gauge -->
+  <!-- Productivity Score + Breakdown -->
+  <div class="grid-2 mt-xl" style="align-items:start;">
     <div class="card" style="text-align:center;">
       <div class="section-label">Productivity Score</div>
       <div class="gauge-wrap">
-        <!--
-          Semi-circle arc centred at (100,110), radius 88.
-          Arc length = π × 88 ≈ 276.46.
-          stroke-dashoffset = 276.46 × (1 − score/100)
-        -->
         <svg class="gauge-svg" viewBox="0 0 200 122" aria-hidden="true">
-          <path class="gauge-bg-arc"
-            d="M 12 110 A 88 88 0 0 1 188 110" />
-          <path class="gauge-fill-arc" id="gauge-arc"
-            d="M 12 110 A 88 88 0 0 1 188 110"
-            stroke-dasharray="276.46"
-            stroke-dashoffset="276.46" />
+          <path class="gauge-bg-arc"   d="M 12 110 A 88 88 0 0 1 188 110" />
+          <path class="gauge-fill-arc" d="M 12 110 A 88 88 0 0 1 188 110"
+            id="gauge-arc" stroke-dasharray="276.46" stroke-dashoffset="276.46" />
         </svg>
         <div class="gauge-overlay">
           <div class="gauge-number" id="gauge-number">—</div>
-          <div class="gauge-trend" id="gauge-trend"></div>
+          <div class="gauge-trend"  id="gauge-trend"></div>
         </div>
       </div>
       <div class="gauge-scale">
@@ -61,32 +52,51 @@
         <span>100</span>
       </div>
       <p class="text-sm text-muted mt-md" style="line-height:1.5;">
-        Weighted average of the last 14 days.<br>Consistent effort pushes it toward 100.
+        14-day weighted average. Consistent effort reaches 100.
       </p>
     </div>
 
-    <!-- Breakdown + 7-day chart -->
     <div class="card">
       <div class="section-label">Today's Breakdown</div>
       <div id="breakdown-rows"></div>
-
-      <div style="margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border);">
+      <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
         <div class="section-label">Last 7 Days</div>
         <div class="week-chart" id="week-chart"></div>
       </div>
     </div>
-
   </div>
 
-  <!-- ── Stats ── -->
+  <!-- 4 Streak cards -->
+  <div class="mt-lg">
+    <h2>Active Streaks</h2>
+    <div class="grid-4 mt-md">
+      <div class="card streak-card">
+        <div class="streak-icon">🔥</div>
+        <div class="streak-value" id="s-habit">0</div>
+        <div class="streak-label">Habit Streak</div>
+      </div>
+      <div class="card streak-card">
+        <div class="streak-icon">✓</div>
+        <div class="streak-value" id="s-task">0</div>
+        <div class="streak-label">Task Streak</div>
+      </div>
+      <div class="card streak-card">
+        <div class="streak-icon">📓</div>
+        <div class="streak-value" id="s-journal">0</div>
+        <div class="streak-label">Journal Streak</div>
+      </div>
+      <div class="card streak-card">
+        <div class="streak-icon">⏱</div>
+        <div class="streak-value" id="s-focus">0</div>
+        <div class="streak-label">Focus Streak</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today stats -->
   <div class="grid-3 mt-md">
     <div class="card stat-card">
-      <div class="stat-icon">🔥</div>
-      <div class="stat-value" id="stat-streak">0</div>
-      <div class="stat-label">Habit Streak</div>
-    </div>
-    <div class="card stat-card">
-      <div class="stat-icon">✓</div>
+      <div class="stat-icon">📋</div>
       <div class="stat-value" id="stat-tasks">0</div>
       <div class="stat-label">Tasks Done Today</div>
     </div>
@@ -95,46 +105,40 @@
       <div class="stat-value" id="stat-focus">0m</div>
       <div class="stat-label">Focus Time Today</div>
     </div>
+    <div class="card stat-card">
+      <div class="stat-icon">📊</div>
+      <div class="stat-value" id="stat-score">0</div>
+      <div class="stat-label">Today's Day Score</div>
+    </div>
   </div>
 
-  <!-- ── Quick access ── -->
+  <!-- Quick access -->
   <div class="mt-xl">
     <h2>Quick access</h2>
     <div class="grid-2 mt-md">
       <a href="habits.html" class="quick-link card">
         <span class="quick-icon">🔥</span>
-        <div>
-          <div class="quick-title">Habits</div>
-          <div class="quick-sub">Build your daily routines</div>
-        </div>
+        <div><div class="quick-title">Habits</div><div class="quick-sub">Build your daily routines</div></div>
       </a>
       <a href="journal.html" class="quick-link card">
         <span class="quick-icon">📓</span>
-        <div>
-          <div class="quick-title">Journal</div>
-          <div class="quick-sub">Reflect and capture thoughts</div>
-        </div>
+        <div><div class="quick-title">Journal</div><div class="quick-sub">Reflect and capture thoughts</div></div>
       </a>
       <a href="tasks.html" class="quick-link card">
         <span class="quick-icon">✓</span>
-        <div>
-          <div class="quick-title">Tasks</div>
-          <div class="quick-sub">Get things done today</div>
-        </div>
+        <div><div class="quick-title">Tasks</div><div class="quick-sub">Get things done today</div></div>
       </a>
       <a href="calendar.html" class="quick-link card">
         <span class="quick-icon">📅</span>
-        <div>
-          <div class="quick-title">Calendar</div>
-          <div class="quick-sub">Plan your schedule</div>
-        </div>
+        <div><div class="quick-title">Calendar</div><div class="quick-sub">Plan your schedule</div></div>
       </a>
-      <a href="focus.html" class="quick-link card" style="grid-column: 1 / -1;">
+      <a href="focus.html" class="quick-link card">
         <span class="quick-icon">⏱</span>
-        <div>
-          <div class="quick-title">Focus Mode</div>
-          <div class="quick-sub">Deep work with Pomodoro timer</div>
-        </div>
+        <div><div class="quick-title">Focus Mode</div><div class="quick-sub">Deep work Pomodoro timer</div></div>
+      </a>
+      <a href="metrics.html" class="quick-link card">
+        <span class="quick-icon">📊</span>
+        <div><div class="quick-title">Metrics</div><div class="quick-sub">Understand your data</div></div>
       </a>
     </div>
   </div>
@@ -143,102 +147,75 @@
 
 <script src="app.js"></script>
 <script>
-  const GAUGE_CIRCUMFERENCE = 276.46;
+  const GAUGE_C = 276.46;
 
-  // ── Date & greeting ──
-  const now = new Date();
-  document.getElementById('date-display').textContent = now.toLocaleDateString('en-US', {
+  document.getElementById('date-display').textContent = new Date().toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
   document.getElementById('greeting').textContent = getGreeting() + '.';
 
-  // ── Quote ──
   const q = getDailyQuote();
   document.getElementById('quote-text').textContent = `"${q.text}"`;
   document.getElementById('quote-author').textContent = `— ${q.author}`;
 
-  // ── Productivity score ──
+  // Score
   const { score } = getProductivityScore();
   const color = getScoreColor(score);
-  const label = getScoreLabel(score);
-
-  // Animate gauge after a short delay so the transition is visible
   const arcEl = document.getElementById('gauge-arc');
   const numEl = document.getElementById('gauge-number');
   arcEl.style.stroke = color;
-  numEl.style.color = color;
-  numEl.textContent = score;
-
-  document.getElementById('gauge-label').textContent = label;
+  numEl.style.color  = color;
+  numEl.textContent  = score;
+  document.getElementById('gauge-label').textContent = getScoreLabel(score);
   document.getElementById('gauge-label').style.color = color;
+  setTimeout(() => { arcEl.style.strokeDashoffset = GAUGE_C * (1 - score / 100); }, 120);
 
-  setTimeout(() => {
-    arcEl.style.strokeDashoffset = GAUGE_CIRCUMFERENCE * (1 - score / 100);
-  }, 120);
-
-  // Trend vs yesterday
+  // Trend
   const yest = new Date(); yest.setDate(yest.getDate() - 1);
-  const { total: yesterdayScore } = getDayScore(dateKey(yest));
-  const { total: todayRawScore } = getDayScore(today());
-  const diff = todayRawScore - yesterdayScore;
-  const trendEl = document.getElementById('gauge-trend');
-  if (diff > 0) { trendEl.textContent = `↑ +${diff} vs yesterday`; trendEl.style.color = '#4ade80'; }
-  else if (diff < 0) { trendEl.textContent = `↓ ${diff} vs yesterday`; trendEl.style.color = '#f87171'; }
-  else if (todayRawScore > 0) { trendEl.textContent = `= Same as yesterday`; }
+  const { total: yScore } = getDayScore(dateKey(yest));
+  const { total: tScore } = getDayScore(today());
+  const diff = tScore - yScore;
+  const tEl = document.getElementById('gauge-trend');
+  if      (diff > 0) { tEl.textContent = `↑ +${diff} vs yesterday`; tEl.style.color = 'var(--success)'; }
+  else if (diff < 0) { tEl.textContent = `↓ ${diff} vs yesterday`;  tEl.style.color = 'var(--danger)'; }
+  else if (tScore>0) { tEl.textContent = '= Same as yesterday'; }
 
-  // ── Breakdown bars ──
-  const todayData = getDayScore(today());
-  const cats = [
-    {
-      label: 'Habits',
-      value: todayData.habitsTotal > 0
-        ? `${todayData.habitsDone}/${todayData.habitsTotal}`
-        : 'none set',
-      pct: Math.round(todayData.habitRate * 100),
-      color: '#7c6af7',
-    },
-    {
-      label: 'Tasks',
-      value: `${todayData.tasksDone} done`,
-      pct: Math.min(Math.round((todayData.tasksDone / 5) * 100), 100),
-      color: '#4ade80',
-    },
-    {
-      label: 'Focus',
-      value: `${todayData.focusMin}m`,
-      pct: Math.min(Math.round((todayData.focusMin / 120) * 100), 100),
-      color: '#fbbf24',
-    },
-  ];
-
-  document.getElementById('breakdown-rows').innerHTML = cats.map(c => `
+  // Breakdown
+  const td = getDayScore(today());
+  document.getElementById('breakdown-rows').innerHTML = [
+    { label: 'Habits', value: td.habitsTotal > 0 ? `${td.habitsDone}/${td.habitsTotal}` : '—',
+      pct: Math.round(td.habitRate * 100), color: '#7c6af7' },
+    { label: 'Tasks',  value: `${td.tasksDone} done`,
+      pct: Math.min(Math.round((td.tasksDone / 5) * 100), 100), color: '#4ade80' },
+    { label: 'Focus',  value: `${td.focusMin}m`,
+      pct: Math.min(Math.round((td.focusMin / 120) * 100), 100), color: '#fbbf24' },
+  ].map(c => `
     <div class="cat-row">
       <span class="cat-label">${c.label}</span>
-      <div class="cat-bar-bg">
-        <div class="cat-bar-fill" style="width:${c.pct}%; background:${c.color};"></div>
-      </div>
+      <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${c.pct}%;background:${c.color};"></div></div>
       <span class="cat-value">${c.value}</span>
-    </div>
-  `).join('');
+    </div>`).join('');
 
-  // ── 7-day chart ──
-  const weekly = getWeeklyScores();
-  const maxScore = Math.max(...weekly.map(d => d.score), 1);
-  document.getElementById('week-chart').innerHTML = weekly.map(d => {
-    const h = Math.max(Math.round((d.score / 100) * 100), d.score > 0 ? 4 : 2);
-    const barColor = getScoreColor(d.score);
-    return `
-      <div class="chart-col${d.isToday ? ' today' : ''}">
-        <div class="chart-bar" style="height:${h}%;background:${barColor};opacity:${d.isToday ? '1' : '0.4'};"></div>
-        <span class="chart-day">${d.label}</span>
-      </div>`;
+  // 7-day chart
+  document.getElementById('week-chart').innerHTML = getWeeklyScores().map(d => {
+    const h = Math.max(Math.round(d.score), d.score > 0 ? 4 : 2);
+    return `<div class="chart-col${d.isToday ? ' today' : ''}">
+      <div class="chart-bar" style="height:${h}%;background:${getScoreColor(d.score)};opacity:${d.isToday?'1':'0.4'};"></div>
+      <span class="chart-day">${d.label}</span>
+    </div>`;
   }).join('');
 
-  // ── Stats ──
+  // Streaks
   const stats = getStats();
-  document.getElementById('stat-streak').textContent = stats.habitStreak;
+  document.getElementById('s-habit').textContent   = stats.habitStreak;
+  document.getElementById('s-task').textContent    = stats.taskStreak;
+  document.getElementById('s-journal').textContent = stats.journalStreak;
+  document.getElementById('s-focus').textContent   = stats.focusStreak;
+
+  // Today stats
   document.getElementById('stat-tasks').textContent = stats.tasksToday;
   document.getElementById('stat-focus').textContent = stats.focusToday + 'm';
+  document.getElementById('stat-score').textContent = tScore;
 </script>
 
 </body>

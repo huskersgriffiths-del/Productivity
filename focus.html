@@ -16,35 +16,51 @@
   <a href="tasks.html" class="nav-link">Tasks</a>
   <a href="calendar.html" class="nav-link">Calendar</a>
   <a href="focus.html" class="nav-link">Focus</a>
+  <a href="metrics.html" class="nav-link">Metrics</a>
 </nav>
 
 <main>
 
   <div class="section-header">
     <h1>Focus</h1>
-    <span class="text-sm text-muted" id="today-focus-label"></span>
+    <div style="text-align:right;">
+      <div style="font-size:1.6rem;font-weight:700;letter-spacing:-1px;color:var(--accent);" id="focus-streak-val">0</div>
+      <div class="text-sm text-muted">day streak ⏱</div>
+    </div>
+  </div>
+
+  <!-- Stats mini-grid -->
+  <div class="focus-stat-grid">
+    <div class="focus-stat">
+      <div class="focus-stat-value" id="fs-today">0m</div>
+      <div class="focus-stat-label">Today</div>
+    </div>
+    <div class="focus-stat">
+      <div class="focus-stat-value" id="fs-week">0m</div>
+      <div class="focus-stat-label">This Week</div>
+    </div>
+    <div class="focus-stat">
+      <div class="focus-stat-value" id="fs-sessions">0</div>
+      <div class="focus-stat-label">Total Sessions</div>
+    </div>
   </div>
 
   <!-- Timer card -->
-  <div class="card mt-md">
+  <div class="card mt-lg">
     <div class="focus-wrap">
 
-      <!-- SVG ring + digits -->
       <div class="timer-ring-wrap">
-        <svg class="timer-ring-svg" viewBox="0 0 240 240" aria-hidden="true">
-          <circle class="ring-bg" cx="120" cy="120" r="108" />
-          <circle class="ring-fill" cx="120" cy="120" r="108"
-            id="ring-circle"
-            stroke-dasharray="678.58"
-            stroke-dashoffset="0" />
+        <svg class="timer-ring-svg" viewBox="0 0 220 220" aria-hidden="true">
+          <circle class="ring-bg"   cx="110" cy="110" r="100" />
+          <circle class="ring-fill" cx="110" cy="110" r="100"
+            id="ring-circle" stroke-dasharray="628.32" stroke-dashoffset="0" />
         </svg>
         <div class="timer-center">
-          <div class="timer-digits" id="timer-digits">25:00</div>
+          <div class="timer-digits"     id="timer-digits">25:00</div>
           <div class="timer-mode-label" id="timer-mode-label">Focus</div>
         </div>
       </div>
 
-      <!-- Pomodoro session dots (4 per cycle) -->
       <div class="pomodoro-dots" id="pom-dots">
         <div class="pom-dot" id="dot-0"></div>
         <div class="pom-dot" id="dot-1"></div>
@@ -52,24 +68,22 @@
         <div class="pom-dot" id="dot-3"></div>
       </div>
 
-      <!-- Controls -->
       <div class="focus-controls">
         <button class="btn btn-primary" id="start-btn">Start</button>
-        <button class="btn btn-ghost" id="reset-btn">Reset</button>
+        <button class="btn btn-ghost"   id="reset-btn">Reset</button>
       </div>
 
-      <!-- Mode selector -->
-      <div class="filter-tabs" style="max-width:320px; width:100%;">
-        <button class="filter-tab active" data-mode="focus" id="tab-focus">Focus 25m</button>
-        <button class="filter-tab" data-mode="short" id="tab-short">Break 5m</button>
-        <button class="filter-tab" data-mode="long" id="tab-long">Long 15m</button>
+      <div class="filter-tabs" style="max-width:300px;width:100%;">
+        <button class="filter-tab active" data-mode="focus">Focus 25m</button>
+        <button class="filter-tab" data-mode="short">Break 5m</button>
+        <button class="filter-tab" data-mode="long">Long 15m</button>
       </div>
 
     </div>
   </div>
 
-  <!-- Today's sessions -->
-  <div class="mt-xl">
+  <!-- Session log -->
+  <div class="mt-lg">
     <div class="section-header">
       <h2>Today's sessions</h2>
       <button class="btn btn-ghost btn-sm" id="clear-sessions-btn" style="display:none;">Clear</button>
@@ -83,135 +97,99 @@
 
 <script src="app.js"></script>
 <script>
-  // ── Config ───────────────────────────────────────────────────────
   const MODES = {
     focus: { label: 'Focus',       minutes: 25 },
     short: { label: 'Short Break', minutes: 5  },
     long:  { label: 'Long Break',  minutes: 15 },
   };
+  const CIRC = 628.32;
 
-  const CIRCUMFERENCE = 2 * Math.PI * 108; // ≈ 678.58
+  let mode = 'focus', totalSecs = 1500, secsLeft = 1500;
+  let running = false, intervalId = null, pomSession = 0;
 
-  // ── State ────────────────────────────────────────────────────────
-  let mode = 'focus';
-  let totalSeconds = MODES.focus.minutes * 60;
-  let secondsLeft = totalSeconds;
-  let running = false;
-  let intervalId = null;
-  let pomSession = 0; // 0–3, resets after long break
+  const digitsEl  = document.getElementById('timer-digits');
+  const modeLbl   = document.getElementById('timer-mode-label');
+  const startBtn  = document.getElementById('start-btn');
+  const ringCircle= document.getElementById('ring-circle');
 
-  // ── Elements ─────────────────────────────────────────────────────
-  const digitsEl    = document.getElementById('timer-digits');
-  const modeLabel   = document.getElementById('timer-mode-label');
-  const startBtn    = document.getElementById('start-btn');
-  const resetBtn    = document.getElementById('reset-btn');
-  const ringCircle  = document.getElementById('ring-circle');
-
-  // ── Helpers ──────────────────────────────────────────────────────
-  function pad(n) { return String(n).padStart(2, '0'); }
-
-  function formatTime(secs) {
-    return `${pad(Math.floor(secs / 60))}:${pad(secs % 60)}`;
-  }
-
-  function setRing(progress) {
-    // progress: 0 (empty) → 1 (full)
-    const offset = CIRCUMFERENCE * (1 - progress);
-    ringCircle.style.strokeDashoffset = offset;
-  }
+  function pad(n) { return String(n).padStart(2,'0'); }
+  function fmt(s) { return `${pad(Math.floor(s/60))}:${pad(s%60)}`; }
 
   function updateDisplay() {
-    digitsEl.textContent = formatTime(secondsLeft);
-    modeLabel.textContent = MODES[mode].label;
-    document.title = `${formatTime(secondsLeft)} — ${MODES[mode].label} | Momentum`;
-    const progress = secondsLeft / totalSeconds;
-    setRing(progress);
-
-    // Ring colour: accent for focus, green for breaks
+    digitsEl.textContent = fmt(secsLeft);
+    modeLbl.textContent  = MODES[mode].label;
+    document.title       = `${fmt(secsLeft)} — ${MODES[mode].label} | Momentum`;
+    ringCircle.style.strokeDashoffset = CIRC * (1 - secsLeft / totalSecs);
     ringCircle.classList.toggle('break', mode !== 'focus');
   }
 
   function updateDots() {
     for (let i = 0; i < 4; i++) {
       const dot = document.getElementById(`dot-${i}`);
-      dot.classList.remove('done', 'current');
-      if (i < pomSession) dot.classList.add('done');
-      else if (i === pomSession && mode === 'focus') dot.classList.add('current');
+      dot.classList.toggle('done', i < pomSession);
     }
   }
 
-  // ── Session logging ──────────────────────────────────────────────
   function getSessions() { return store.get('focus_sessions', []); }
-  function saveSessions(s) { store.set('focus_sessions', s); }
+  function saveSessions(s){ store.set('focus_sessions', s); }
 
   function logSession(mins) {
     const sessions = getSessions();
     sessions.push({
-      id: generateId(),
-      date: today(),
-      minutes: mins,
-      mode,
+      id: generateId(), date: today(), minutes: mins, mode,
       completedAt: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
     });
     saveSessions(sessions);
     renderSessions();
-    updateTodayLabel();
+    updateStats();
+  }
+
+  function updateStats() {
+    const sessions = getSessions();
+    const t = today();
+    const now = new Date();
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 6);
+
+    const todayMins = sessions.filter(s => s.date === t && s.mode === 'focus')
+      .reduce((a,s) => a+s.minutes, 0);
+    const weekMins = sessions.filter(s => {
+      const d = new Date(s.date+'T12:00');
+      return s.mode === 'focus' && d >= weekAgo && d <= now;
+    }).reduce((a,s) => a+s.minutes, 0);
+
+    document.getElementById('fs-today').textContent    = todayMins + 'm';
+    document.getElementById('fs-week').textContent     = weekMins + 'm';
+    document.getElementById('fs-sessions').textContent = sessions.filter(s=>s.mode==='focus').length;
+    document.getElementById('focus-streak-val').textContent = getFocusStreak();
   }
 
   function renderSessions() {
     const sessions = getSessions().filter(s => s.date === today()).reverse();
-    const list = document.getElementById('sessions-list');
+    const list     = document.getElementById('sessions-list');
     const clearBtn = document.getElementById('clear-sessions-btn');
-
     clearBtn.style.display = sessions.length ? 'inline-flex' : 'none';
-
     if (!sessions.length) {
-      list.innerHTML = `<div class="empty"><div class="empty-icon">⏱</div><p>No sessions yet today. Start the timer to begin.</p></div>`;
+      list.innerHTML = `<div class="empty"><div class="empty-icon">⏱</div><p>No sessions yet. Start the timer to begin.</p></div>`;
       return;
     }
-
     list.innerHTML = sessions.map(s => `
       <div class="session-item">
-        <span style="color:var(--text);">${s.mode === 'focus' ? '🎯' : '☕'} ${s.mode === 'focus' ? 'Focus' : 'Break'} — ${s.minutes} min</span>
+        <span style="color:var(--text);">${s.mode==='focus'?'🎯':'☕'} ${s.mode==='focus'?'Focus':'Break'} — ${s.minutes} min</span>
         <span>${s.completedAt}</span>
-      </div>
-    `).join('');
+      </div>`).join('');
   }
 
-  function updateTodayLabel() {
-    const sessions = getSessions().filter(s => s.date === today() && s.mode === 'focus');
-    const mins = sessions.reduce((a, s) => a + s.minutes, 0);
-    document.getElementById('today-focus-label').textContent =
-      mins ? `${mins} min focused today` : '';
-  }
-
-  // ── Timer logic ──────────────────────────────────────────────────
   function tick() {
-    secondsLeft--;
+    secsLeft--;
     updateDisplay();
-
-    if (secondsLeft <= 0) {
-      clearInterval(intervalId);
-      running = false;
-      startBtn.textContent = 'Start';
-
-      // Beep
-      playBeep(880, 0.3);
-      setTimeout(() => playBeep(1100, 0.3), 350);
-
-      // Log completed focus session
+    if (secsLeft <= 0) {
+      clearInterval(intervalId); running = false; startBtn.textContent = 'Start';
+      playBeep(880, 0.3); setTimeout(() => playBeep(1100, 0.3), 350);
       if (mode === 'focus') {
         logSession(MODES.focus.minutes);
         pomSession = (pomSession + 1) % 4;
-
-        // After 4 focus sessions, suggest long break
-        if (pomSession === 0) {
-          switchMode('long');
-        } else {
-          switchMode('short');
-        }
+        switchMode(pomSession === 0 ? 'long' : 'short');
       } else {
-        // After a break, switch back to focus
         switchMode('focus');
       }
       updateDots();
@@ -219,62 +197,39 @@
   }
 
   function startTimer() {
-    if (running) {
-      clearInterval(intervalId);
-      running = false;
-      startBtn.textContent = 'Resume';
-    } else {
-      if (secondsLeft <= 0) resetTimer();
-      intervalId = setInterval(tick, 1000);
-      running = true;
-      startBtn.textContent = 'Pause';
+    if (running) { clearInterval(intervalId); running = false; startBtn.textContent = 'Resume'; }
+    else {
+      if (secsLeft <= 0) resetTimer();
+      intervalId = setInterval(tick, 1000); running = true; startBtn.textContent = 'Pause';
     }
   }
 
   function resetTimer() {
-    clearInterval(intervalId);
-    running = false;
-    secondsLeft = totalSeconds;
-    startBtn.textContent = 'Start';
-    updateDisplay();
+    clearInterval(intervalId); running = false; secsLeft = totalSecs;
+    startBtn.textContent = 'Start'; updateDisplay();
   }
 
-  function switchMode(newMode) {
-    clearInterval(intervalId);
-    running = false;
-    mode = newMode;
-    totalSeconds = MODES[mode].minutes * 60;
-    secondsLeft = totalSeconds;
+  function switchMode(m) {
+    clearInterval(intervalId); running = false; mode = m;
+    totalSecs = MODES[mode].minutes * 60; secsLeft = totalSecs;
     startBtn.textContent = 'Start';
-
-    // Update tab highlight
     document.querySelectorAll('.filter-tab[data-mode]').forEach(t =>
-      t.classList.toggle('active', t.dataset.mode === mode)
-    );
-
+      t.classList.toggle('active', t.dataset.mode === mode));
     updateDisplay();
   }
 
-  // ── Event listeners ──────────────────────────────────────────────
   startBtn.addEventListener('click', startTimer);
   resetBtn.addEventListener('click', () => { resetTimer(); updateDots(); });
 
-  document.querySelectorAll('.filter-tab[data-mode]').forEach(tab => {
-    tab.addEventListener('click', () => switchMode(tab.dataset.mode));
-  });
+  document.querySelectorAll('.filter-tab[data-mode]').forEach(tab =>
+    tab.addEventListener('click', () => switchMode(tab.dataset.mode)));
 
   document.getElementById('clear-sessions-btn').addEventListener('click', () => {
-    const sessions = getSessions().filter(s => s.date !== today());
-    saveSessions(sessions);
-    renderSessions();
-    updateTodayLabel();
+    saveSessions(getSessions().filter(s => s.date !== today()));
+    renderSessions(); updateStats();
   });
 
-  // ── Init ─────────────────────────────────────────────────────────
-  updateDisplay();
-  updateDots();
-  renderSessions();
-  updateTodayLabel();
+  updateDisplay(); updateDots(); renderSessions(); updateStats();
 </script>
 
 </body>

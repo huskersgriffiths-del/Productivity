@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Momentum — Metrics</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .metric-block { margin-bottom: 32px; }
+    .metric-block h2 { margin-bottom: 12px; color: var(--accent); font-size: 1rem; }
+
+    .metric-row {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .metric-row:last-child { border-bottom: none; }
+
+    .metric-icon {
+      font-size: 1.1rem; flex-shrink: 0; width: 28px; text-align: center; margin-top: 1px;
+    }
+    .metric-name {
+      font-weight: 600; font-size: 0.88rem; margin-bottom: 3px;
+    }
+    .metric-desc { font-size: 0.82rem; color: var(--text-dim); line-height: 1.55; }
+    .metric-value-pill {
+      margin-left: auto; flex-shrink: 0; text-align: right;
+    }
+    .pill {
+      display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 10px;
+      border-radius: 99px; background: var(--accent-dim); color: var(--accent);
+      white-space: nowrap;
+    }
+    .pill.green  { background: rgba(74,222,128,0.1);  color: var(--success); }
+    .pill.yellow { background: rgba(251,191,36,0.1);  color: var(--warn); }
+    .pill.red    { background: rgba(248,113,113,0.1); color: var(--danger); }
+
+    .score-bar-bg {
+      height: 6px; background: var(--border2); border-radius: 99px;
+      overflow: hidden; margin-top: 8px; max-width: 300px;
+    }
+    .score-bar-fill {
+      height: 100%; border-radius: 99px; background: var(--accent);
+      transition: width 0.8s ease;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand">◆ Momentum</a>
+  <a href="index.html" class="nav-link">Home</a>
+  <a href="habits.html" class="nav-link">Habits</a>
+  <a href="journal.html" class="nav-link">Journal</a>
+  <a href="tasks.html" class="nav-link">Tasks</a>
+  <a href="calendar.html" class="nav-link">Calendar</a>
+  <a href="focus.html" class="nav-link">Focus</a>
+  <a href="metrics.html" class="nav-link">Metrics</a>
+</nav>
+
+<main>
+
+  <h1>Metrics</h1>
+  <p class="text-muted mt-sm" style="font-size:0.85rem;">
+    Everything Momentum tracks — what it means, how it's calculated, and your current numbers.
+  </p>
+
+  <!-- Live snapshot -->
+  <div class="card mt-lg">
+    <div class="section-label">Your Live Snapshot</div>
+    <div id="live-snapshot"></div>
+  </div>
+
+  <!-- Productivity Score -->
+  <div class="card mt-lg metric-block">
+    <h2>📊 Productivity Score</h2>
+    <div class="metric-row">
+      <div class="metric-icon">🔢</div>
+      <div>
+        <div class="metric-name">How it's calculated</div>
+        <div class="metric-desc">
+          Each day gets a raw score out of 100 based on three pillars:
+          <br>• <strong>Habits</strong> — % of your habits completed × 40 points
+          <br>• <strong>Tasks</strong> — tasks done (capped at 5) × 6 points each = max 30
+          <br>• <strong>Focus</strong> — minutes focused (capped at 120 min) ÷ 4 = max 30
+          <br><br>
+          Your displayed score is a <strong>14-day exponentially weighted rolling average</strong>.
+          Recent days carry ~4× more weight than days 7 days ago, so your score responds
+          quickly to improvement and drops within days of slacking — making 100 genuinely
+          achievable with ~7 days of strong effort.
+        </div>
+        <div class="score-bar-bg mt-md">
+          <div class="score-bar-fill" id="score-bar" style="width:0%;"></div>
+        </div>
+        <div class="text-sm text-muted mt-sm" id="score-explain"></div>
+      </div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">🏷</div>
+      <div>
+        <div class="metric-name">Score labels</div>
+        <div class="metric-desc">
+          0–20: Just Starting &nbsp;·&nbsp; 21–40: Building Habits &nbsp;·&nbsp;
+          41–60: Gaining Ground &nbsp;·&nbsp; 61–75: Strong Momentum &nbsp;·&nbsp;
+          76–90: High Achiever &nbsp;·&nbsp; 91–100: Peak State 🔥
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Streaks -->
+  <div class="card mt-md metric-block">
+    <h2>🔥 Streaks</h2>
+    <div class="metric-row">
+      <div class="metric-icon">🔥</div>
+      <div style="flex:1;">
+        <div class="metric-name">Habit Streak</div>
+        <div class="metric-desc">Consecutive days where <em>every single habit</em> you've added was completed. Missing even one habit resets it to zero. This is the hardest streak to maintain — and the most powerful.</div>
+      </div>
+      <div class="metric-value-pill"><span class="pill" id="m-habit-streak">—</span></div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">✓</div>
+      <div style="flex:1;">
+        <div class="metric-name">Task Streak</div>
+        <div class="metric-desc">Consecutive days where you completed at least one task. Encourages showing up every day, even with small wins.</div>
+      </div>
+      <div class="metric-value-pill"><span class="pill" id="m-task-streak">—</span></div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">📓</div>
+      <div style="flex:1;">
+        <div class="metric-name">Journal Streak</div>
+        <div class="metric-desc">Consecutive days with at least one journal entry. Writing daily builds self-awareness and sharpens thinking.</div>
+      </div>
+      <div class="metric-value-pill"><span class="pill" id="m-journal-streak">—</span></div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">⏱</div>
+      <div style="flex:1;">
+        <div class="metric-name">Focus Streak</div>
+        <div class="metric-desc">Consecutive days with at least one completed focus (Pomodoro) session. Deep work every day compounds dramatically over months.</div>
+      </div>
+      <div class="metric-value-pill"><span class="pill" id="m-focus-streak">—</span></div>
+    </div>
+  </div>
+
+  <!-- Habits -->
+  <div class="card mt-md metric-block">
+    <h2>🌱 Habits</h2>
+    <div class="metric-row">
+      <div class="metric-icon">📅</div>
+      <div>
+        <div class="metric-name">Monthly Grid</div>
+        <div class="metric-desc">Each column is a day of the month. A filled cell (✓) means you completed that habit. Navigate backwards to see your history across months.</div>
+      </div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">🎯</div>
+      <div>
+        <div class="metric-name">Goal vs Achieved</div>
+        <div class="metric-desc">
+          Set a monthly goal for each habit (default 20 days). The <strong>Achieved</strong> column turns:
+          <br>• <span style="color:var(--success);">Green</span> — you met your goal
+          <br>• <span style="color:var(--warn);">Yellow</span> — you're at 65–99% of goal
+          <br>• <span style="color:var(--danger);">Red</span> — below 65%
+        </div>
+      </div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">📈</div>
+      <div style="flex:1;">
+        <div class="metric-name">Per-habit individual streak</div>
+        <div class="metric-desc">The 🔥 badge on each habit row shows that habit's current consecutive-day streak, tracked independently from all others.</div>
+      </div>
+      <div class="metric-value-pill" id="m-habits-today"></div>
+    </div>
+  </div>
+
+  <!-- Tasks -->
+  <div class="card mt-md metric-block">
+    <h2>✓ Tasks</h2>
+    <div class="metric-row">
+      <div class="metric-icon">🗂</div>
+      <div>
+        <div class="metric-name">Three sections</div>
+        <div class="metric-desc">
+          <strong>Active</strong> — tasks not yet done and not past their due date.<br>
+          <strong>Overdue</strong> — tasks with a due date that has already passed.<br>
+          <strong>Completed</strong> — tasks you've checked off.
+        </div>
+      </div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">🏷</div>
+      <div>
+        <div class="metric-name">Groups</div>
+        <div class="metric-desc">Create named groups (e.g. Work, Personal, Health) to organise tasks. Filter by group using the tabs above the task list.</div>
+      </div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">📅</div>
+      <div>
+        <div class="metric-name">Due dates & times</div>
+        <div class="metric-desc">Assign a specific date and time to any task. Tasks become Overdue automatically when that moment passes.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Focus -->
+  <div class="card mt-md metric-block">
+    <h2>⏱ Focus</h2>
+    <div class="metric-row">
+      <div class="metric-icon">🍅</div>
+      <div>
+        <div class="metric-name">Pomodoro cycle</div>
+        <div class="metric-desc">25 min focus → 5 min break, repeat 4 times → 15 min long break. The dots below the timer show your position in the current cycle.</div>
+      </div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">📊</div>
+      <div style="flex:1;">
+        <div class="metric-name">Focus score contribution</div>
+        <div class="metric-desc">Every minute of focus time contributes to your daily productivity score. 120 minutes = full 30 points. Sessions are logged and visible on the Focus page.</div>
+      </div>
+      <div class="metric-value-pill" id="m-focus-today"></div>
+    </div>
+  </div>
+
+  <!-- Journal -->
+  <div class="card mt-md metric-block">
+    <h2>📓 Journal</h2>
+    <div class="metric-row">
+      <div class="metric-icon">✍️</div>
+      <div>
+        <div class="metric-name">Dated entries</div>
+        <div class="metric-desc">Each entry is tied to a specific date. You can backdate entries by changing the date field — useful for capturing yesterday's thoughts today.</div>
+      </div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-icon">🔥</div>
+      <div style="flex:1;">
+        <div class="metric-name">Journal streak</div>
+        <div class="metric-desc">Writing daily, even briefly, builds a reflection habit. Multiple entries on the same day still count as one streak day.</div>
+      </div>
+      <div class="metric-value-pill" id="m-journal-today"></div>
+    </div>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+  function render() {
+    const habits      = store.get('habits', []);
+    const completions = store.get('habit_completions', {});
+    const tasks       = store.get('tasks', []);
+    const sessions    = store.get('focus_sessions', []);
+    const entries     = store.get('journal', []);
+    const t           = today();
+
+    const { score } = getProductivityScore();
+    const stats = getStats();
+
+    // Streaks
+    document.getElementById('m-habit-streak').textContent   = stats.habitStreak + ' days';
+    document.getElementById('m-task-streak').textContent    = stats.taskStreak  + ' days';
+    document.getElementById('m-journal-streak').textContent = stats.journalStreak + ' days';
+    document.getElementById('m-focus-streak').textContent   = stats.focusStreak  + ' days';
+
+    // Score bar
+    document.getElementById('score-bar').style.width = score + '%';
+    document.getElementById('score-bar').style.background = getScoreColor(score);
+    document.getElementById('score-explain').textContent =
+      `Current score: ${score} / 100 — ${getScoreLabel(score)}`;
+
+    // Today pills
+    const todayComp = completions[t] || {};
+    const habDone = habits.filter(h => todayComp[h.id]).length;
+    document.getElementById('m-habits-today').innerHTML =
+      `<span class="pill">${habDone}/${habits.length} today</span>`;
+
+    const focusToday = sessions.filter(s=>s.date===t&&s.mode==='focus').reduce((a,s)=>a+s.minutes,0);
+    document.getElementById('m-focus-today').innerHTML =
+      `<span class="pill">${focusToday}m today</span>`;
+
+    const journalToday = entries.filter(e=>e.date===t).length;
+    document.getElementById('m-journal-today').innerHTML =
+      `<span class="pill${journalToday?'':' red'}">${journalToday ? journalToday + ' entr' + (journalToday===1?'y':'ies') : 'none today'}</span>`;
+
+    // Live snapshot
+    const tasksDone = tasks.filter(tk=>tk.done&&tk.doneDate===t).length;
+    const overdue   = tasks.filter(tk=>!tk.done&&tk.dueDate&&(new Date(tk.dueDate+'T23:59')<new Date())).length;
+    document.getElementById('live-snapshot').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+        ${[
+          ['📊','Score', score, getScoreColor(score)],
+          ['🔥','Habit Streak', stats.habitStreak + 'd', null],
+          ['✓','Task Streak', stats.taskStreak + 'd', null],
+          ['📓','Journal Streak', stats.journalStreak + 'd', null],
+          ['⏱','Focus Streak', stats.focusStreak + 'd', null],
+          ['📋','Tasks Done Today', tasksDone, null],
+          ['⚠','Overdue Tasks', overdue, overdue ? 'var(--danger)' : null],
+          ['⏱','Focus Today', focusToday + 'm', null],
+        ].map(([icon, lbl, val, col]) => `
+          <div class="card" style="padding:12px;text-align:center;border-color:var(--border2);">
+            <div style="font-size:1rem;margin-bottom:4px;">${icon}</div>
+            <div style="font-size:1.3rem;font-weight:700;color:${col||'var(--accent)'};letter-spacing:-0.5px;">${val}</div>
+            <div style="font-size:0.62rem;color:var(--text-muted);margin-top:3px;text-transform:uppercase;letter-spacing:0.4px;">${lbl}</div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  render();
+</script>
+
+</body>
+</html>
