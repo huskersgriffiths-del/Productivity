@@ -26,34 +26,41 @@
       <p class="text-muted mt-sm" style="font-size:0.85rem;" id="today-label"></p>
     </div>
     <div id="streak-badge" style="display:none; text-align:right;">
-      <div style="font-size:1.6rem;font-weight:700;color:var(--accent);" id="streak-count">0</div>
-      <div class="text-sm text-muted">day streak</div>
+      <div style="font-size:1.8rem;font-weight:700;color:var(--accent);letter-spacing:-1px;" id="streak-count">0</div>
+      <div class="text-sm text-muted">day streak 🔥</div>
     </div>
   </div>
 
   <!-- Add habit -->
   <div class="card">
-    <h2 style="margin-bottom:14px;">Add a habit</h2>
+    <div class="section-label">Add a new habit</div>
     <form class="habit-form" id="habit-form">
-      <input type="text" id="habit-input" placeholder="e.g. Meditate, Read 20 pages, Exercise…" autocomplete="off" />
+      <input type="text" id="habit-input" placeholder="e.g. Meditate, Read 20 pages, Exercise, Cold shower…" autocomplete="off" />
       <button type="submit" class="btn btn-primary">Add</button>
     </form>
   </div>
 
-  <!-- Today's habits -->
+  <!-- Today's overview -->
+  <div class="card mt-md" id="overview-card" style="display:none;">
+    <div class="section-header" style="margin-bottom:10px;">
+      <div class="section-label" style="margin-bottom:0;">Today's Progress</div>
+      <span class="text-sm text-muted" id="completion-label"></span>
+    </div>
+    <div class="progress-bar-wrap" style="margin-top:0; padding-top:0; border-top:none;">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <span class="text-sm text-muted" id="progress-pct">0%</span>
+    </div>
+  </div>
+
+  <!-- Habit cards -->
   <div class="mt-lg">
     <div class="section-header">
-      <h2>Today</h2>
-      <span class="text-sm text-muted" id="completion-label"></span>
+      <h2>Your habits</h2>
     </div>
     <div class="card" id="habits-card">
       <div id="habits-list"></div>
-      <div class="progress-bar-wrap" id="progress-wrap" style="display:none;">
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
-        </div>
-        <span class="text-sm text-muted" id="progress-label">0 / 0</span>
-      </div>
     </div>
   </div>
 
@@ -61,73 +68,179 @@
 
 <script src="app.js"></script>
 <script>
+  const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  // Per-habit heatmap month state: { habitId: { year, month } }
+  const heatmapState = {};
+
   const todayKey = today();
 
-  // Date label
   document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
 
-  function getHabits() { return store.get('habits', []); }
+  function getHabits()      { return store.get('habits', []); }
   function getCompletions() { return store.get('habit_completions', {}); }
-
-  function saveHabits(habits) { store.set('habits', habits); }
-  function saveCompletions(c) { store.set('habit_completions', c); }
-
-  function render() {
-    const habits = getHabits();
-    const completions = getCompletions();
-    const todayComp = completions[todayKey] || {};
-    const list = document.getElementById('habits-list');
-
-    // Streak
-    const streak = getHabitStreak(habits, completions);
-    const badge = document.getElementById('streak-badge');
-    if (habits.length) {
-      badge.style.display = 'block';
-      document.getElementById('streak-count').textContent = streak;
-    } else {
-      badge.style.display = 'none';
-    }
-
-    if (!habits.length) {
-      list.innerHTML = `<div class="empty"><div class="empty-icon">🌱</div><p>No habits yet. Add one above to start building your streak.</p></div>`;
-      document.getElementById('progress-wrap').style.display = 'none';
-      document.getElementById('completion-label').textContent = '';
-      return;
-    }
-
-    const done = habits.filter(h => todayComp[h.id]).length;
-    const pct = Math.round((done / habits.length) * 100);
-
-    document.getElementById('completion-label').textContent = `${done} of ${habits.length} done`;
-    document.getElementById('progress-wrap').style.display = 'flex';
-    document.getElementById('progress-fill').style.width = pct + '%';
-    document.getElementById('progress-label').textContent = `${done} / ${habits.length}`;
-
-    list.innerHTML = habits.map(h => {
-      const isDone = !!todayComp[h.id];
-      const streak = getHabitIndividualStreak(h.id, completions);
-      const streakText = streak > 0 ? `🔥 ${streak} day${streak !== 1 ? 's' : ''}` : 'Start your streak today';
-      return `
-        <div class="habit-item" data-id="${h.id}">
-          <button class="habit-check${isDone ? ' done' : ''}" data-id="${h.id}" title="${isDone ? 'Mark incomplete' : 'Mark complete'}">
-            ${isDone ? '✓' : ''}
-          </button>
-          <div class="habit-info">
-            <div class="habit-name${isDone ? ' done' : ''}">${escapeHtml(h.name)}</div>
-            <div class="habit-streak-label">${streakText}</div>
-          </div>
-          <button class="habit-delete" data-id="${h.id}" title="Delete habit">×</button>
-        </div>`;
-    }).join('');
-  }
+  function saveHabits(h)    { store.set('habits', h); }
+  function saveCompletions(c){ store.set('habit_completions', c); }
 
   function escapeHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // Add habit
+  // ── Build heatmap HTML for one habit ─────────────────────────
+  function buildHeatmap(habitId, year, month) {
+    const completions = getCompletions();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    // Monday-start: Mon=0 … Sun=6
+    const rawFirstDay = new Date(year, month, 1).getDay(); // 0=Sun
+    const firstDayMon = (rawFirstDay + 6) % 7;
+
+    let cells = '';
+    // Empty filler cells
+    for (let i = 0; i < firstDayMon; i++) {
+      cells += '<div class="heatmap-cell empty" title=""></div>';
+    }
+
+    const nowStr = today();
+    let doneDays = 0, pastDays = 0;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isToday = key === nowStr;
+      const isFuture = key > nowStr;
+      const isDone = !isFuture && !!(getCompletions()[key] || {})[habitId];
+
+      if (!isFuture) {
+        pastDays++;
+        if (isDone) doneDays++;
+      }
+
+      let cls = 'heatmap-cell';
+      if (isFuture) cls += ' future';
+      else if (isDone) cls += ' done';
+      if (isToday) cls += ' today';
+
+      const titleText = isDone ? `${key} ✓` : (isFuture ? '' : key);
+      cells += `<div class="${cls}" title="${titleText}"></div>`;
+    }
+
+    const rate = pastDays > 0 ? Math.round((doneDays / pastDays) * 100) : 0;
+
+    return { cells, doneDays, pastDays, rate };
+  }
+
+  // ── Render heatmap section for a habit ───────────────────────
+  function renderHeatmapSection(habitId) {
+    const now = new Date();
+    if (!heatmapState[habitId]) {
+      heatmapState[habitId] = { year: now.getFullYear(), month: now.getMonth() };
+    }
+    const { year, month } = heatmapState[habitId];
+    const { cells, doneDays, pastDays, rate } = buildHeatmap(habitId, year, month);
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+
+    return `
+      <div class="heatmap-nav">
+        <button class="heatmap-nav-btn" data-action="hm-prev" data-id="${habitId}">‹</button>
+        <span class="heatmap-month-label">${MONTH_NAMES[month]} ${year}</span>
+        <button class="heatmap-nav-btn" data-action="hm-next" data-id="${habitId}" ${isCurrentMonth ? 'disabled style="opacity:0.3;cursor:default;"' : ''}>›</button>
+      </div>
+      <div class="heatmap-weekdays">
+        ${WEEKDAY_LABELS.map(l => `<div class="heatmap-wd-label">${l}</div>`).join('')}
+      </div>
+      <div class="heatmap-grid">${cells}</div>
+      <div class="heatmap-footer">
+        <span><strong>${doneDays}</strong> of ${pastDays} days completed</span>
+        <span style="color:${rate >= 70 ? 'var(--success)' : rate >= 40 ? 'var(--accent)' : 'var(--danger)'}; font-weight:600;">${rate}% consistency</span>
+      </div>`;
+  }
+
+  // ── Render all habits ────────────────────────────────────────
+  function render() {
+    const habits = getHabits();
+    const completions = getCompletions();
+    const todayComp = completions[todayKey] || {};
+
+    // Overview card
+    const overviewCard = document.getElementById('overview-card');
+    if (habits.length) {
+      overviewCard.style.display = 'block';
+      const done = habits.filter(h => todayComp[h.id]).length;
+      const pct = Math.round((done / habits.length) * 100);
+      document.getElementById('completion-label').textContent = `${done} / ${habits.length} done`;
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('progress-pct').textContent = pct + '%';
+    } else {
+      overviewCard.style.display = 'none';
+    }
+
+    // Streak badge
+    const streak = getHabitStreak(habits, completions);
+    const badge = document.getElementById('streak-badge');
+    badge.style.display = habits.length ? 'block' : 'none';
+    document.getElementById('streak-count').textContent = streak;
+
+    const list = document.getElementById('habits-list');
+
+    if (!habits.length) {
+      list.innerHTML = `<div class="empty"><div class="empty-icon">🌱</div><p>No habits yet. Add one above to start building momentum.</p></div>`;
+      return;
+    }
+
+    list.innerHTML = habits.map(h => {
+      const isDone = !!todayComp[h.id];
+      const curStreak = getHabitIndividualStreak(h.id, completions);
+      const bestStreak = getBestStreak(h.id, completions);
+      const now = new Date();
+      const monthStats = getHabitMonthStats(h.id, completions, now.getFullYear(), now.getMonth());
+      const totalDone = Object.values(completions).filter(day => day[h.id]).length;
+      const isOpen = document.querySelector(`.habit-card[data-id="${h.id}"]`)?.classList.contains('open');
+
+      return `
+        <div class="habit-card${isOpen ? ' open' : ''}" data-id="${h.id}">
+          <div class="habit-card-header" data-action="toggle-expand" data-id="${h.id}">
+            <button class="habit-check${isDone ? ' done' : ''}" data-action="check" data-id="${h.id}" title="Toggle today">
+              ${isDone ? '✓' : ''}
+            </button>
+            <div class="habit-info">
+              <div class="habit-name${isDone ? ' done' : ''}">${escapeHtml(h.name)}</div>
+              <div class="habit-meta">
+                🔥 ${curStreak} day streak &nbsp;·&nbsp; ${monthStats.done}/${monthStats.pastDays} this month
+              </div>
+            </div>
+            <button class="habit-expand-btn" data-action="toggle-expand" data-id="${h.id}" title="Show details">▾</button>
+            <button class="habit-delete" data-action="delete" data-id="${h.id}" title="Delete">×</button>
+          </div>
+          <div class="habit-detail">
+            <div class="habit-stat-grid">
+              <div class="habit-stat">
+                <div class="habit-stat-value">${curStreak}</div>
+                <div class="habit-stat-label">Current<br>Streak</div>
+              </div>
+              <div class="habit-stat">
+                <div class="habit-stat-value">${bestStreak}</div>
+                <div class="habit-stat-label">Best<br>Streak</div>
+              </div>
+              <div class="habit-stat">
+                <div class="habit-stat-value">${monthStats.rate}%</div>
+                <div class="habit-stat-label">This<br>Month</div>
+              </div>
+              <div class="habit-stat">
+                <div class="habit-stat-value">${totalDone}</div>
+                <div class="habit-stat-label">Total<br>Days</div>
+              </div>
+            </div>
+            <div class="heatmap-section" id="hm-${h.id}">
+              ${renderHeatmapSection(h.id)}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Add habit ────────────────────────────────────────────────
   document.getElementById('habit-form').addEventListener('submit', e => {
     e.preventDefault();
     const input = document.getElementById('habit-input');
@@ -140,12 +253,16 @@
     render();
   });
 
-  // Toggle / delete via delegation
+  // ── Event delegation on the habits card ─────────────────────
   document.getElementById('habits-card').addEventListener('click', e => {
-    const checkBtn = e.target.closest('.habit-check');
-    const delBtn = e.target.closest('.habit-delete');
+    const checkBtn = e.target.closest('[data-action="check"]');
+    const delBtn   = e.target.closest('[data-action="delete"]');
+    const expBtn   = e.target.closest('[data-action="toggle-expand"]');
+    const hmPrev   = e.target.closest('[data-action="hm-prev"]');
+    const hmNext   = e.target.closest('[data-action="hm-next"]');
 
     if (checkBtn) {
+      e.stopPropagation();
       const id = checkBtn.dataset.id;
       const completions = getCompletions();
       if (!completions[todayKey]) completions[todayKey] = {};
@@ -153,14 +270,57 @@
       if (!completions[todayKey][id]) delete completions[todayKey][id];
       saveCompletions(completions);
       render();
+      return;
     }
 
     if (delBtn) {
+      e.stopPropagation();
       const id = delBtn.dataset.id;
-      if (!confirm('Delete this habit? Your streak history will be preserved.')) return;
-      const habits = getHabits().filter(h => h.id !== id);
-      saveHabits(habits);
+      if (!confirm('Delete this habit? Your history will be preserved.')) return;
+      saveHabits(getHabits().filter(h => h.id !== id));
       render();
+      return;
+    }
+
+    if (expBtn || e.target.closest('[data-action="toggle-expand"]')) {
+      const id = (expBtn || e.target.closest('[data-action="toggle-expand"]')).dataset.id;
+      const card = document.querySelector(`.habit-card[data-id="${id}"]`);
+      if (card) {
+        card.classList.toggle('open');
+        // Re-render heatmap section when opening
+        if (card.classList.contains('open')) {
+          const section = document.getElementById(`hm-${id}`);
+          if (section) section.innerHTML = renderHeatmapSection(id);
+        }
+      }
+      return;
+    }
+
+    if (hmPrev) {
+      const id = hmPrev.dataset.id;
+      const state = heatmapState[id] || { year: new Date().getFullYear(), month: new Date().getMonth() };
+      let { year, month } = state;
+      month--;
+      if (month < 0) { month = 11; year--; }
+      heatmapState[id] = { year, month };
+      const section = document.getElementById(`hm-${id}`);
+      if (section) section.innerHTML = renderHeatmapSection(id);
+      return;
+    }
+
+    if (hmNext) {
+      const id = hmNext.dataset.id;
+      const state = heatmapState[id] || { year: new Date().getFullYear(), month: new Date().getMonth() };
+      let { year, month } = state;
+      const now = new Date();
+      if (year < now.getFullYear() || month < now.getMonth()) {
+        month++;
+        if (month > 11) { month = 0; year++; }
+        heatmapState[id] = { year, month };
+        const section = document.getElementById(`hm-${id}`);
+        if (section) section.innerHTML = renderHeatmapSection(id);
+      }
+      return;
     }
   });
 
