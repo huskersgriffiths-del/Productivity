@@ -7,7 +7,7 @@
   const AUTH_VAL  = 'granted_v1';
   // Simple hash: sum of (charCode * position) — not cryptographic,
   // just enough to avoid storing the plaintext in localStorage.
-  const PWD_HASH  = 434; // hash of "Monkey5642!"
+  const PWD_HASH  = 422; // hash of "Monkey5642!"
 
   function hashPwd(s) {
     let h = 0;
