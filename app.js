@@ -2,6 +2,17 @@
    app.js — Shared utilities & data layer for Momentum
 ═══════════════════════════════════════════════════════════════ */
 
+// ── Active nav link ───────────────────────────────────────────────
+(function () {
+  const page = location.pathname.split('/').pop() || 'index.html';
+  document.querySelectorAll('.nav-link').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href === page || (page === '' && href === 'index.html')) {
+      link.classList.add('active');
+    }
+  });
+})();
+
 // ── Storage helpers ──────────────────────────────────────────────
 const store = {
   get(key, fallback = null) {

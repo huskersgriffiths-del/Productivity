@@ -5,6 +5,178 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Momentum — Habits</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── Month navigator ── */
+    .month-nav {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .month-nav-btn {
+      background: none; border: 1px solid var(--border2); color: var(--text-dim);
+      border-radius: var(--radius-sm); width: 30px; height: 30px; cursor: pointer;
+      font-size: 1rem; display: flex; align-items: center; justify-content: center;
+      transition: all 0.12s; flex-shrink: 0;
+    }
+    .month-nav-btn:hover { background: var(--card2); color: var(--text); }
+    .month-nav-btn:disabled { opacity: 0.25; pointer-events: none; }
+    .month-nav-label { font-size: 1rem; font-weight: 600; letter-spacing: -0.2px; min-width: 140px; }
+
+    /* ── Summary stat strip ── */
+    .habit-stat-strip {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .habit-stat {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .habit-stat-val {
+      font-size: 1.5rem; font-weight: 700; color: var(--accent);
+      letter-spacing: -0.5px; font-family: 'JetBrains Mono', monospace;
+      line-height: 1;
+    }
+    .habit-stat-lbl {
+      font-size: 0.62rem; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.6px; font-weight: 600; margin-top: 3px;
+    }
+
+    /* ── Habit card ── */
+    .habit-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 18px;
+      margin-bottom: 10px; transition: border-color 0.15s;
+    }
+    .habit-card:hover { border-color: var(--border2); }
+
+    .habit-card-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .habit-name-text {
+      font-weight: 600; font-size: 0.91rem; flex: 1;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .habit-streak-badge {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 0.72rem; font-weight: 700; color: var(--accent);
+      background: var(--accent-dim); padding: 3px 9px; border-radius: 99px;
+      flex-shrink: 0;
+    }
+    .habit-del-btn {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 1.1rem; padding: 2px 6px;
+      border-radius: 5px; opacity: 0; transition: all 0.12s; line-height: 1;
+    }
+    .habit-card:hover .habit-del-btn { opacity: 1; }
+    .habit-del-btn:hover { color: var(--danger); background: rgba(248,113,113,0.1); }
+
+    /* ── Day dot grid ── */
+    .day-dot-grid {
+      display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .day-dot {
+      width: 16px; height: 16px; border-radius: 3px;
+      background: var(--border2); cursor: pointer;
+      transition: background 0.08s, transform 0.08s;
+      position: relative; flex-shrink: 0;
+    }
+    .day-dot:hover:not(.day-future) { transform: scale(1.25); background: rgba(124,106,247,0.35); }
+    .day-dot.day-done { background: var(--accent); }
+    .day-dot.day-done:hover:not(.day-future) { background: var(--accent-h); }
+    .day-dot.day-today { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .day-dot.day-today:not(.day-done) { background: rgba(124,106,247,0.12); }
+    .day-dot.day-future { opacity: 0.2; cursor: default; pointer-events: none; }
+    .day-dot.day-weekend:not(.day-done) { background: rgba(255,255,255,0.04); }
+
+    /* Dot number label (hover tooltip via title attr, day number line) */
+    .day-dot-labels {
+      display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 4px;
+    }
+    .day-dot-label {
+      width: 16px; text-align: center; font-size: 0.5rem;
+      color: var(--text-muted); flex-shrink: 0; line-height: 1;
+    }
+    .day-dot-label.is-today { color: var(--accent); font-weight: 700; }
+
+    /* ── Progress bar + goal ── */
+    .habit-footer {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .habit-progress-wrap { flex: 1; }
+    .habit-progress-bar {
+      height: 4px; background: var(--border2); border-radius: 99px;
+      overflow: hidden; margin-bottom: 4px;
+    }
+    .habit-progress-fill {
+      height: 100%; border-radius: 99px;
+      transition: width 0.5s ease;
+    }
+    .habit-progress-text {
+      font-size: 0.68rem; color: var(--text-muted);
+    }
+    .habit-goal-control {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.72rem; color: var(--text-muted); flex-shrink: 0;
+    }
+    .goal-input-sm {
+      width: 38px; background: transparent; border: 1px solid transparent;
+      border-radius: 4px; color: var(--text); font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem; padding: 2px 4px; text-align: center; outline: none;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .goal-input-sm:hover { border-color: var(--border2); background: var(--surface); }
+    .goal-input-sm:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 2px rgba(124,106,247,0.1); }
+    .achieved-count {
+      font-size: 0.72rem; font-weight: 700; padding: 2px 8px;
+      border-radius: 99px; flex-shrink: 0;
+    }
+    .achieved-count.green  { background: rgba(52,211,153,0.12);  color: var(--success); }
+    .achieved-count.yellow { background: rgba(251,191,36,0.12);  color: var(--warn); }
+    .achieved-count.red    { background: rgba(248,113,113,0.12); color: var(--danger); }
+
+    /* ── Add habit ── */
+    .add-habit-card {
+      border: 1px dashed var(--border2); border-radius: var(--radius);
+      padding: 14px 18px; margin-bottom: 10px;
+      transition: border-color 0.15s;
+    }
+    .add-habit-trigger {
+      display: flex; align-items: center; gap: 8px;
+      background: none; border: none; color: var(--text-muted);
+      font-family: 'DM Sans', sans-serif; font-size: 0.87rem; font-weight: 500;
+      cursor: pointer; width: 100%; text-align: left; padding: 0;
+      transition: color 0.12s;
+    }
+    .add-habit-trigger:hover { color: var(--accent); }
+    .add-habit-trigger span { font-size: 1.1rem; }
+    .add-habit-form {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px;
+    }
+    .add-habit-form input[type="text"]   { flex: 1; min-width: 160px; }
+    .add-habit-form input[type="number"] { width: 72px; }
+
+    /* ── Notes ── */
+    .note-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .note-item:last-child { border-bottom: none; }
+    .note-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .note-date { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+    .note-del {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; padding: 2px 5px; border-radius: 4px;
+      opacity: 0; transition: all 0.12s; font-size: 0.9rem;
+    }
+    .note-item:hover .note-del { opacity: 1; }
+    .note-del:hover { color: var(--danger); }
+    .note-text { font-size: 0.84rem; color: var(--text-dim); line-height: 1.58; white-space: pre-wrap; }
+
+    @media (max-width: 560px) {
+      .habit-stat-strip { grid-template-columns: 1fr 1fr; }
+      .day-dot { width: 13px; height: 13px; }
+      .day-dot-label { width: 13px; }
+    }
+  </style>
 </head>
 <body>
 
@@ -16,6 +188,7 @@
   <a href="tasks.html" class="nav-link">Tasks</a>
   <a href="calendar.html" class="nav-link">Calendar</a>
   <a href="focus.html" class="nav-link">Focus</a>
+  <a href="metrics.html" class="nav-link">Metrics</a>
 </nav>
 
 <main>
@@ -24,34 +197,44 @@
   <div class="section-header">
     <div>
       <h1>Habits</h1>
-      <div class="habit-month-nav mt-sm">
-        <button class="hm-nav-btn" id="prev-month">‹</button>
-        <span class="habit-month-label" id="month-label"></span>
-        <button class="hm-nav-btn" id="next-month">›</button>
+      <div class="month-nav mt-sm">
+        <button class="month-nav-btn" id="prev-month">‹</button>
+        <span class="month-nav-label" id="month-label"></span>
+        <button class="month-nav-btn" id="next-month">›</button>
       </div>
-    </div>
-    <div style="text-align:right;" id="streak-badge">
-      <div style="font-size:1.6rem;font-weight:700;letter-spacing:-1px;color:var(--accent);" id="streak-count">0</div>
-      <div class="text-sm text-muted">overall streak 🔥</div>
     </div>
   </div>
 
-  <!-- Habit grid -->
-  <div class="habit-grid-outer" id="grid-outer">
-    <table class="habit-table" id="habit-table"></table>
+  <!-- Stats strip -->
+  <div class="habit-stat-strip" id="stat-strip"></div>
+
+  <!-- Habit list -->
+  <div id="habit-list"></div>
+
+  <!-- Add habit -->
+  <div class="add-habit-card" id="add-habit-card">
+    <button class="add-habit-trigger" id="show-add-btn">
+      <span>+</span> New Habit
+    </button>
+    <div class="add-habit-form" id="add-habit-form" style="display:none;">
+      <input type="text" id="new-habit-name" placeholder="e.g. Meditate, Read, Exercise…" autocomplete="off" />
+      <input type="number" id="new-habit-goal" value="20" min="1" max="31" title="Monthly goal (days)" placeholder="Goal" />
+      <button class="btn btn-primary btn-sm" id="confirm-add">Add Habit</button>
+      <button class="btn btn-ghost btn-sm" id="cancel-add">Cancel</button>
+    </div>
   </div>
 
   <!-- Notes -->
   <div class="card mt-lg">
     <div class="section-header">
-      <h2>Notes</h2>
+      <h2>Monthly Notes</h2>
       <button class="btn btn-ghost btn-sm" id="add-note-btn">+ Add Note</button>
     </div>
     <div id="note-compose" style="display:none; margin-bottom:14px;">
       <textarea id="note-input" placeholder="Reflect on your habits this month…" rows="3"></textarea>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
         <button class="btn btn-ghost btn-sm" id="cancel-note">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="save-note">Save</button>
+        <button class="btn btn-primary btn-sm" id="save-note">Save Note</button>
       </div>
     </div>
     <div id="notes-list"></div>
@@ -63,235 +246,225 @@
 <script>
   const MONTH_NAMES = ['January','February','March','April','May','June',
                        'July','August','September','October','November','December'];
-  const WD_LETTER   = ['S','M','T','W','T','F','S'];
 
   let viewYear  = new Date().getFullYear();
   let viewMonth = new Date().getMonth();
+  let addFormOpen = false;
 
-  function getHabits()      { return store.get('habits', []); }
-  function getCompletions() { return store.get('habit_completions', {}); }
-  function getNotes()       { return store.get('habit_notes', []); }
-  function saveHabits(h)    { store.set('habits', h); }
+  function getHabits()       { return store.get('habits', []); }
+  function getCompletions()  { return store.get('habit_completions', {}); }
+  function getNotes()        { return store.get('habit_notes', []); }
+  function saveHabits(h)     { store.set('habits', h); }
   function saveCompletions(c){ store.set('habit_completions', c); }
-  function saveNotes(n)     { store.set('habit_notes', n); }
+  function saveNotes(n)      { store.set('habit_notes', n); }
 
   function escapeHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // ── Build the full grid ────────────────────────────────────
-  function buildGrid() {
+  function buildDayInfo() {
+    const todayStr    = today();
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const d   = i + 1;
+      const key = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const wd  = new Date(viewYear, viewMonth, d).getDay();
+      return {
+        d, key,
+        isToday:   key === todayStr,
+        isFuture:  key > todayStr,
+        isWeekend: wd === 0 || wd === 6,
+      };
+    });
+  }
+
+  function render() {
     const habits      = getHabits();
     const completions = getCompletions();
     const todayStr    = today();
-    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const days        = buildDayInfo();
+    const now         = new Date();
 
-    // Update month label & streak
+    // Month label + nav state
     document.getElementById('month-label').textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+    const isCurrentMonth = viewYear === now.getFullYear() && viewMonth === now.getMonth();
+    document.getElementById('next-month').disabled = isCurrentMonth;
+
+    // Overall streak
     const streak = getHabitStreak(habits, completions);
-    document.getElementById('streak-count').textContent = streak;
-    document.getElementById('streak-badge').style.display = habits.length ? 'block' : 'none';
 
-    // Disable next-month if already on current month
-    const now = new Date();
-    document.getElementById('next-month').disabled =
-      viewYear === now.getFullYear() && viewMonth === now.getMonth();
-    document.getElementById('next-month').style.opacity =
-      (viewYear === now.getFullYear() && viewMonth === now.getMonth()) ? '0.3' : '1';
+    // Today's completion
+    const todayComp = completions[todayStr] || {};
+    const todayDone = habits.filter(h => todayComp[h.id]).length;
 
-    // Day keys for this month
-    const days = Array.from({ length: daysInMonth }, (_, i) => {
-      const d = i + 1;
-      const key = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const date = new Date(viewYear, viewMonth, d);
-      const wd   = date.getDay();
-      const isToday   = key === todayStr;
-      const isFuture  = key > todayStr;
-      const isWeekend = wd === 0 || wd === 6;
-      return { d, key, wd, isToday, isFuture, isWeekend };
+    // Month total (habits × past days done across all habits)
+    let monthDoneTotal = 0, monthPossible = 0;
+    days.forEach(({ key, isFuture }) => {
+      if (isFuture) return;
+      const dayComp = completions[key] || {};
+      habits.forEach(h => {
+        monthPossible++;
+        if (dayComp[h.id]) monthDoneTotal++;
+      });
     });
+    const monthPct = monthPossible ? Math.round((monthDoneTotal / monthPossible) * 100) : 0;
 
-    // ── Header rows ──────────────────────────────────────────
-    const dayNumRow = days.map(({ d, wd, isToday, isWeekend }) =>
-      `<th class="ht-day-head${isToday ? ' is-today' : ''}${isWeekend ? ' is-weekend' : ''}">${d}</th>`
-    ).join('');
+    // Stats strip
+    document.getElementById('stat-strip').innerHTML = [
+      { val: streak,                     lbl: 'Overall Streak', unit: ' days' },
+      { val: `${todayDone}/${habits.length}`, lbl: 'Done Today',     unit: '' },
+      { val: monthPct + '%',             lbl: 'Month Rate',     unit: '' },
+    ].map(s => `
+      <div class="habit-stat">
+        <div class="habit-stat-val">${s.val}${s.unit}</div>
+        <div class="habit-stat-lbl">${s.lbl}</div>
+      </div>`).join('');
 
-    const wdRow = days.map(({ wd, isToday, isWeekend }) =>
-      `<th class="ht-day-head${isToday ? ' is-today' : ''}${isWeekend ? ' is-weekend' : ''}">${WD_LETTER[wd]}</th>`
-    ).join('');
-
-    const thead = `
-      <thead>
-        <tr class="ht-head-row">
-          <th class="ht-name-head"><div class="ht-name-head-inner">Habits</div></th>
-          ${dayNumRow}
-          <th class="ht-goal-head">Goal</th>
-          <th class="ht-achieved-head">Achieved</th>
-        </tr>
-        <tr class="ht-wd-row">
-          <th class="ht-name-head"><div class="ht-name-head-inner" style="color:var(--text-muted);font-size:0.62rem;">🔥 streak</div></th>
-          ${wdRow}
-          <th></th><th></th>
-        </tr>
-      </thead>`;
-
-    // ── Body rows ────────────────────────────────────────────
-    let tbody = '<tbody>';
+    // Habit list
+    const listEl = document.getElementById('habit-list');
 
     if (!habits.length) {
-      tbody += `<tr><td colspan="${daysInMonth + 3}"
-        style="padding:32px;text-align:center;color:var(--text-muted);font-size:0.84rem;">
-        No habits yet — add one below to start tracking.
-        </td></tr>`;
+      listEl.innerHTML = `
+        <div class="card" style="text-align:center;padding:40px 20px;">
+          <div style="font-size:2rem;opacity:0.3;margin-bottom:12px;">◎</div>
+          <div style="color:var(--text-muted);font-size:0.86rem;">No habits yet — add your first one below.</div>
+        </div>`;
     } else {
-      habits.forEach(h => {
-        // Count achieved this month (past days only)
+      listEl.innerHTML = habits.map(h => {
+        // Count achieved (past days only)
         let achieved = 0;
         days.forEach(({ key, isFuture }) => {
           if (!isFuture && (completions[key] || {})[h.id]) achieved++;
         });
 
         const goal = h.goal || 20;
-        const achClass = achieved >= goal ? 'ach-green'
-          : achieved >= Math.round(goal * 0.65) ? 'ach-yellow' : 'ach-red';
+        const pct  = Math.min(100, Math.round((achieved / goal) * 100));
+        const achClass = achieved >= goal ? 'green'
+          : achieved >= Math.round(goal * 0.65) ? 'yellow' : 'red';
+        const barColor = achieved >= goal ? 'var(--success)'
+          : achieved >= Math.round(goal * 0.65) ? 'var(--warn)' : 'var(--danger)';
 
         const curStreak = getHabitIndividualStreak(h.id, completions);
 
-        const cells = days.map(({ key, isToday, isFuture, isWeekend }) => {
+        // Day dot labels row
+        const labelsHtml = days.map(({ d, isToday }) =>
+          `<div class="day-dot-label${isToday ? ' is-today' : ''}">${d}</div>`
+        ).join('');
+
+        // Day dots
+        const dotsHtml = days.map(({ d, key, isToday, isFuture, isWeekend }) => {
           const isDone = !!(completions[key] || {})[h.id];
-          let cls = 'ht-day-cell';
-          if (isDone)    cls += ' ht-done';
-          if (isToday)   cls += ' ht-today';
-          if (isFuture)  cls += ' ht-future';
-          if (isWeekend) cls += ' ht-weekend';
-          return `<td class="${cls}" data-action="toggle" data-habit="${h.id}" data-key="${key}">${isDone ? '✓' : ''}</td>`;
+          let cls = 'day-dot';
+          if (isDone)    cls += ' day-done';
+          if (isToday)   cls += ' day-today';
+          if (isFuture)  cls += ' day-future';
+          if (isWeekend) cls += ' day-weekend';
+          const label = new Date(viewYear, viewMonth, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          return `<div class="${cls}" data-action="toggle" data-habit="${h.id}" data-key="${key}" title="${label}"></div>`;
         }).join('');
 
-        tbody += `
-          <tr class="ht-body-row" data-habit-id="${h.id}">
-            <td class="ht-name-cell">
-              <div class="ht-name-inner">
-                <span class="ht-habit-name" title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</span>
-                ${curStreak > 0 ? `<span class="ht-streak-pill">🔥 ${curStreak}</span>` : ''}
-                <button class="ht-del-btn" data-action="delete" data-id="${h.id}" title="Delete">×</button>
+        return `
+          <div class="habit-card" data-habit-id="${h.id}">
+            <div class="habit-card-header">
+              <div class="habit-name-text" title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</div>
+              ${curStreak > 0 ? `<div class="habit-streak-badge">🔥 ${curStreak}d</div>` : ''}
+              <button class="habit-del-btn" data-action="delete" data-id="${h.id}" title="Delete habit">×</button>
+            </div>
+            <div class="day-dot-labels">${labelsHtml}</div>
+            <div class="day-dot-grid">${dotsHtml}</div>
+            <div class="habit-footer">
+              <div class="habit-progress-wrap">
+                <div class="habit-progress-bar">
+                  <div class="habit-progress-fill" style="width:${pct}%;background:${barColor};"></div>
+                </div>
+                <div class="habit-progress-text">${achieved} of <span class="goal-display-${h.id}">${goal}</span> goal days completed</div>
               </div>
-            </td>
-            ${cells}
-            <td class="ht-goal-cell">
-              <input type="number" class="goal-input" value="${goal}" min="1" max="${daysInMonth}"
-                data-habit-id="${h.id}" title="Monthly goal" />
-            </td>
-            <td class="ht-achieved-cell ${achClass}">${achieved}</td>
-          </tr>`;
-      });
+              <div class="habit-goal-control">
+                <span>Goal:</span>
+                <input type="number" class="goal-input-sm" value="${goal}" min="1" max="31"
+                  data-habit-id="${h.id}" title="Monthly goal" />
+              </div>
+              <div class="achieved-count ${achClass}">${achieved}/${goal}</div>
+            </div>
+          </div>`;
+      }).join('');
     }
 
-    tbody += '</tbody>';
-
-    // ── Add-habit footer ─────────────────────────────────────
-    const tfoot = `
-      <tfoot>
-        <tr class="ht-add-row">
-          <td colspan="${daysInMonth + 3}">
-            <div id="add-btn-wrap">
-              <button class="ht-add-btn" id="show-add-form">+ New Habit</button>
-            </div>
-            <div class="ht-add-form" id="add-habit-form" style="display:none;">
-              <input type="text" id="new-habit-name" placeholder="Habit name…" autocomplete="off" />
-              <input type="number" id="new-habit-goal" value="20" min="1" max="${daysInMonth}" placeholder="Goal" title="Monthly goal days" />
-              <button class="btn btn-primary btn-sm" id="confirm-add">Add</button>
-              <button class="btn btn-ghost btn-sm" id="cancel-add">Cancel</button>
-            </div>
-          </td>
-        </tr>
-      </tfoot>`;
-
-    document.getElementById('habit-table').innerHTML = thead + tbody + tfoot;
-    attachTableListeners();
+    renderNotes();
   }
 
-  // ── Table event listeners ──────────────────────────────────
-  function attachTableListeners() {
-    const table = document.getElementById('habit-table');
+  // ── Event delegation ──────────────────────────────────────────────
+  document.getElementById('habit-list').addEventListener('click', e => {
+    const dot = e.target.closest('[data-action="toggle"]');
+    const del = e.target.closest('[data-action="delete"]');
 
-    table.addEventListener('click', e => {
-      const toggle = e.target.closest('[data-action="toggle"]');
-      const del    = e.target.closest('[data-action="delete"]');
+    if (dot) {
+      const { habit, key } = dot.dataset;
+      const comp = getCompletions();
+      if (!comp[key]) comp[key] = {};
+      comp[key][habit] = !comp[key][habit];
+      if (!comp[key][habit]) delete comp[key][habit];
+      saveCompletions(comp);
+      render();
+    }
 
-      if (toggle) {
-        const { habit, key } = toggle.dataset;
-        const comp = getCompletions();
-        if (!comp[key]) comp[key] = {};
-        comp[key][habit] = !comp[key][habit];
-        if (!comp[key][habit]) delete comp[key][habit];
-        saveCompletions(comp);
-        buildGrid();
-        return;
-      }
+    if (del) {
+      if (!confirm('Delete this habit? Your history will be preserved.')) return;
+      saveHabits(getHabits().filter(h => h.id !== del.dataset.id));
+      render();
+    }
+  });
 
-      if (del) {
-        if (!confirm('Delete this habit? Your history will be preserved.')) return;
-        saveHabits(getHabits().filter(h => h.id !== del.dataset.id));
-        buildGrid();
-        return;
-      }
+  document.getElementById('habit-list').addEventListener('change', e => {
+    const input = e.target.closest('.goal-input-sm');
+    if (!input) return;
+    const id  = input.dataset.habitId;
+    const val = Math.max(1, Math.min(31, parseInt(input.value) || 20));
+    input.value = val;
+    saveHabits(getHabits().map(h => h.id === id ? { ...h, goal: val } : h));
+    render();
+  });
 
-      if (e.target.id === 'show-add-form') {
-        document.getElementById('add-btn-wrap').style.display = 'none';
-        document.getElementById('add-habit-form').style.display = 'flex';
-        document.getElementById('new-habit-name').focus();
-        return;
-      }
+  // ── Add habit ──────────────────────────────────────────────────────
+  document.getElementById('show-add-btn').addEventListener('click', () => {
+    addFormOpen = true;
+    document.getElementById('show-add-btn').style.display = 'none';
+    document.getElementById('add-habit-form').style.display = 'flex';
+    document.getElementById('new-habit-name').focus();
+  });
 
-      if (e.target.id === 'cancel-add') {
-        document.getElementById('add-btn-wrap').style.display = 'block';
-        document.getElementById('add-habit-form').style.display = 'none';
-        document.getElementById('new-habit-name').value = '';
-        return;
-      }
-
-      if (e.target.id === 'confirm-add') {
-        confirmAddHabit();
-        return;
-      }
-    });
-
-    // Goal input blur — save updated goal
-    table.addEventListener('change', e => {
-      const input = e.target.closest('.goal-input');
-      if (!input) return;
-      const id = input.dataset.habitId;
-      const val = Math.max(1, Math.min(31, parseInt(input.value) || 20));
-      input.value = val;
-      const habits = getHabits().map(h => h.id === id ? { ...h, goal: val } : h);
-      saveHabits(habits);
-      buildGrid();
-    });
-
-    // Enter key in add-form
-    table.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && e.target.id === 'new-habit-name') confirmAddHabit();
-    });
+  function cancelAddHabit() {
+    addFormOpen = false;
+    document.getElementById('show-add-btn').style.display = 'flex';
+    document.getElementById('add-habit-form').style.display = 'none';
+    document.getElementById('new-habit-name').value = '';
   }
 
   function confirmAddHabit() {
     const nameEl = document.getElementById('new-habit-name');
     const goalEl = document.getElementById('new-habit-goal');
-    const name = nameEl.value.trim();
+    const name   = nameEl.value.trim();
     if (!name) { nameEl.focus(); return; }
-    const goal = Math.max(1, Math.min(31, parseInt(goalEl.value) || 20));
+    const goal   = Math.max(1, Math.min(31, parseInt(goalEl.value) || 20));
     const habits = getHabits();
     habits.push({ id: generateId(), name, goal, createdAt: new Date().toISOString() });
     saveHabits(habits);
-    buildGrid();
+    cancelAddHabit();
+    render();
   }
 
-  // ── Month navigation ───────────────────────────────────────
+  document.getElementById('confirm-add').addEventListener('click', confirmAddHabit);
+  document.getElementById('cancel-add').addEventListener('click', cancelAddHabit);
+  document.getElementById('new-habit-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmAddHabit();
+    if (e.key === 'Escape') cancelAddHabit();
+  });
+
+  // ── Month navigation ───────────────────────────────────────────────
   document.getElementById('prev-month').addEventListener('click', () => {
     viewMonth--;
     if (viewMonth < 0) { viewMonth = 11; viewYear--; }
-    buildGrid();
-    renderNotes();
+    render();
   });
 
   document.getElementById('next-month').addEventListener('click', () => {
@@ -299,27 +472,25 @@
     if (viewYear < now.getFullYear() || viewMonth < now.getMonth()) {
       viewMonth++;
       if (viewMonth > 11) { viewMonth = 0; viewYear++; }
-      buildGrid();
-      renderNotes();
+      render();
     }
   });
 
-  // ── Notes ──────────────────────────────────────────────────
+  // ── Notes ──────────────────────────────────────────────────────────
   function renderNotes() {
     const monthKey = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}`;
-    const notes = getNotes().filter(n => n.monthKey === monthKey);
-    const list  = document.getElementById('notes-list');
+    const notes    = getNotes().filter(n => n.monthKey === monthKey);
+    const list     = document.getElementById('notes-list');
 
     if (!notes.length) {
-      list.innerHTML = '<p class="text-sm text-muted" style="padding:8px 0;">No notes for this month yet.</p>';
+      list.innerHTML = '<p class="text-sm text-muted" style="padding:4px 0;">No notes for this month yet.</p>';
       return;
     }
-
     list.innerHTML = notes.slice().reverse().map(n => `
       <div class="note-item">
         <div class="note-header">
           <span class="note-date">${n.date}</span>
-          <button class="note-del" data-id="${n.id}" title="Delete">×</button>
+          <button class="note-del" data-id="${n.id}">×</button>
         </div>
         <div class="note-text">${escapeHtml(n.text)}</div>
       </div>`).join('');
@@ -333,27 +504,23 @@
   }
 
   document.getElementById('add-note-btn').addEventListener('click', () => {
-    const compose = document.getElementById('note-compose');
-    compose.style.display = compose.style.display === 'none' ? 'block' : 'none';
-    if (compose.style.display === 'block') document.getElementById('note-input').focus();
+    const c = document.getElementById('note-compose');
+    c.style.display = c.style.display === 'none' ? 'block' : 'none';
+    if (c.style.display === 'block') document.getElementById('note-input').focus();
   });
-
   document.getElementById('cancel-note').addEventListener('click', () => {
     document.getElementById('note-compose').style.display = 'none';
     document.getElementById('note-input').value = '';
   });
-
   document.getElementById('save-note').addEventListener('click', () => {
     const text = document.getElementById('note-input').value.trim();
     if (!text) return;
     const monthKey = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}`;
     const notes = getNotes();
     notes.push({
-      id: generateId(),
-      monthKey,
+      id: generateId(), monthKey,
       date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-      text,
-      createdAt: new Date().toISOString(),
+      text, createdAt: new Date().toISOString(),
     });
     saveNotes(notes);
     document.getElementById('note-input').value = '';
@@ -361,9 +528,7 @@
     renderNotes();
   });
 
-  // ── Init ───────────────────────────────────────────────────
-  buildGrid();
-  renderNotes();
+  render();
 </script>
 
 </body>
